@@ -1,0 +1,26 @@
+{
+  "id": "safelight.crop",
+  "name": "Crop & Straighten",
+  "version": "3.0.0",
+  "description": "Crop with aspect presets and composition guides, straighten and level, and the photo's geometry.",
+  "author": "Anthony Reimche",
+  "main": "dist/index.js",
+  "license": "GPL-3.0-only",
+  "categories": [
+    "workflow"
+  ],
+  "keywords": [
+    "crop",
+    "straighten",
+    "level",
+    "aspect ratio",
+    "rule of thirds",
+    "golden ratio",
+    "composition"
+  ],
+  "repository": "anthonyreimche/crop-and-straighten",
+  "worksWith": [
+    "anthonyreimche/Develop"
+  ],
+  "minAppVersion": "3.2.0"
+}
