@@ -59,7 +59,7 @@ export function sourceUV(o: Vec2, crop: CropRect, inv: Mat3): Vec2 {
   return mat3Apply(inv, crop.x + o.x * crop.width, crop.y + o.y * crop.height);
 }
 
-// Largest centered crop of a given target aspect ratio (width:height, in pixels)
+// Largest centred crop of a given target aspect ratio (width:height, in pixels)
 // that fits inside the image. Returns a normalized CropRect.
 export function computeCropForAspect(
   targetRatio: number,
@@ -396,7 +396,7 @@ export function fitLockedCrop(
   return at(lo);
 }
 
-// Shrink the crop about its center to the largest size that still fits the
+// Shrink the crop about its centre to the largest size that still fits the
 // transformed image. Returns it unchanged when it already fits.
 export function fitCropToImage(
   crop: CropRect,
@@ -421,9 +421,9 @@ export function fitCropToImage(
   return { x: cx - w / 2, y: cy - h / 2, width: w, height: h };
 }
 
-// Largest centered crop that fits inside the transformed image. When
+// Largest centred crop that fits inside the transformed image. When
 // cropAspect > 0 the crop keeps that ratio; otherwise it scales a full-frame
-// rectangle uniformly. Used by "constrain crop" to maximise the visible area.
+// rectangle uniformly. Used by "constrain crop" to maximize the visible area.
 // `cropAspect` is the target *pixel* ratio (width:height) and `imageAspect` the
 // image's own pixel ratio — both are needed to size the normalized crop rect.
 export function maxCropForTransform(
