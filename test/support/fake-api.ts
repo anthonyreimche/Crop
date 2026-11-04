@@ -1,6 +1,6 @@
 // A stand-in Safelight API over real React and zustand. The develop store holds
 // the crop, straighten and transform the way core's does and records every
-// write; the catalog store holds the open photo's stored size; the canvas tool
+// write; the catalogue store holds the open photo's stored size; the canvas tool
 // and the shared variables are kept as core would keep them. Core's Panel draws
 // its children, and core's Slider is a stub that keeps the props it was last
 // rendered with, so a test can drive it the way the real one would. The
