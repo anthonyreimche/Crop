@@ -31,7 +31,7 @@ export const cls = {
   reset: `${P}-reset`,
   canvas: `${P}-canvas`,
   layer: `${P}-layer`,
-  piece: `${P}-piece`,
+  dim: `${P}-dim`,
   box: `${P}-box`,
   handle: `${P}-handle`,
   readout: `${P}-readout`,
@@ -65,7 +65,7 @@ export function cropCss(t: UiTokens): string {
 :where(.${cls.reset}:hover) { ${hover} }
 :where(.${cls.canvas}) { position: absolute; inset: 0; touch-action: none; }
 :where(.${cls.layer}) { pointer-events: none; position: absolute; inset: 0; }
-:where(.${cls.piece}) { position: absolute; background: rgba(0, 0, 0, 0.55); }
+:where(.${cls.dim}) { fill: rgba(0, 0, 0, 0.55); }
 :where(.${cls.box}) { pointer-events: none; position: absolute; border: 1px solid rgba(255, 255, 255, 0.8); }
 :where(.${cls.handle}) { pointer-events: none; position: absolute; width: 0.625rem; height: 0.625rem; transform: translate(-50%, -50%); border-radius: 0.125rem; border: 1px solid rgba(0, 0, 0, 0.4); background: #fff; }
 :where(.${cls.readout}) { pointer-events: none; position: absolute; border-radius: 0.25rem; background: rgba(0, 0, 0, 0.75); padding: 0.125rem 0.375rem; font-size: 11px; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }

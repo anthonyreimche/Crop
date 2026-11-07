@@ -14,7 +14,7 @@ import { CropPanel } from "../src/CropPanel";
 import { CROP_TOOL, CropCanvas, viewParams } from "../src/CropCanvas";
 import { CROP_GUIDES, guideShapes } from "../src/crop-guides";
 import { computeCropForAspect, fitCropToImage, transformedViewCrop } from "../src/crop-maths";
-import { buildForwardTransform, buildInverseTransform, mat3Mul, type Mat3 } from "../src/transform";
+import { buildForwardTransform, buildInverseTransform, mat3Apply, mat3Mul, type Mat3 } from "../src/transform";
 import { DEFAULT_CROP, DEFAULT_TRANSFORM } from "../src/defaults";
 import { LEVEL_WITH, OPTIONS, cropMode, cropOptions, registerOptions, resetCropMode, setCropOptions } from "../src/state";
 import manifest from "../safelight.json";
@@ -288,6 +288,45 @@ describe("the crop box", () => {
     const overlay = view.container.firstElementChild as HTMLElement;
     return { view, overlay };
   };
+
+  // A straightened photo is a tilted quad on screen. The dim covered the quad's
+  // bounding box, which darkened the surround in its corners.
+  describe("the dim", () => {
+    const points = (el: Element | null) =>
+      (el?.getAttribute("points") ?? "")
+        .trim()
+        .split(/\s+/)
+        .map((p) => p.split(",").map(Number));
+
+    it("covers the straightened photo's own outline, and nothing past it", () => {
+      const straighten = 10;
+      rig.develop.setState({ params: { ...rig.develop.getState().params, straighten } });
+      const { overlay } = mount({ crop: { x: 0.3, y: 0.3, width: 0.4, height: 0.4 } });
+      const forward = buildForwardTransform(straighten, DEFAULT_TRANSFORM, 1.5);
+      const want = [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ].map(([u, v]) => {
+        const t = mat3Apply(forward, u, v);
+        return [t.x * RECT.w, t.y * RECT.h];
+      });
+      const outline = points(overlay.querySelector("[data-dim] clipPath polygon"));
+      expect(outline).toHaveLength(4);
+      outline.forEach(([x, y], i) => {
+        expect(x).toBeCloseTo(want[i][0], 1);
+        expect(y).toBeCloseTo(want[i][1], 1);
+      });
+    });
+
+    it("leaves the crop undimmed", () => {
+      const { overlay } = mount({ crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } });
+      const path = overlay.querySelector("[data-dim] path");
+      expect(path?.getAttribute("d")).toContain("M150 100H450V300H150Z");
+      expect(path?.getAttribute("fill-rule")).toBe("evenodd");
+    });
+  });
 
   it("hides while the Crop or Transform panel's preview-off eye is held", () => {
     rig.develop.setState({ bypassedPanels: { "core.transform": true } });

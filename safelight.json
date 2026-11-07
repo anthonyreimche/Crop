@@ -1,7 +1,7 @@
 {
   "id": "safelight.crop",
   "name": "Crop & Straighten",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Crop with aspect presets and composition guides, straighten and level, and the photo's geometry.",
   "author": "Anthony Reimche",
   "main": "dist/index.js",

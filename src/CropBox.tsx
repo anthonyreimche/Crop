@@ -54,6 +54,13 @@ const HIT = 12; // px hit radius for handles
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
 
+/** A screen coordinate as SVG text, to a hundredth of a pixel. */
+const num = (v: number) => String(Math.round(v * 100) / 100);
+
+/** An axis-aligned rectangle as one closed SVG subpath. */
+const rectPath = (l: number, t: number, r: number, b: number) =>
+  `M${num(l)} ${num(t)}H${num(r)}V${num(b)}H${num(l)}Z`;
+
 // A shorter line is a click, not a line to level to.
 const MIN_LINE = 6;
 
@@ -140,6 +147,7 @@ export function CropBox({
   );
   // Drives the hover cursor; also reflects the active handle while dragging.
   const [hoverHandle, setHoverHandle] = React.useState<Handle | null>(null);
+  const dimId = React.useId();
 
   // Pointer position in frame-local LAYOUT px — the same space the handles are
   // drawn in. frameLocalPoint also undoes the <body> CSS zoom from the UI-scale
@@ -176,8 +184,9 @@ export function CropBox({
   // transformedViewCrop pads ~6% with a surround-coloured margin so the photo
   // isn't framed in black. Dimming that margin is what drew a dark frame around
   // the photo (and, in Assess, greyed the strip against the white mat); bounding
-  // the dim to the photo keeps the margin matching the surround. For a
-  // straightened photo this is the quad's axis-aligned bounding box.
+  // the dim to the photo keeps the margin matching the surround. A straightened
+  // or keystoned photo is a quad, so the dim is clipped to the quad itself:
+  // its bounding box darkened the surround in the corners.
   const imgPts = [
     mat3Apply(forward, 0, 0),
     mat3Apply(forward, 1, 0),
@@ -188,12 +197,11 @@ export function CropBox({
   const imgR = Math.max(imgPts[0].x, imgPts[1].x, imgPts[2].x, imgPts[3].x);
   const imgT = Math.min(imgPts[0].y, imgPts[1].y, imgPts[2].y, imgPts[3].y);
   const imgB = Math.max(imgPts[0].y, imgPts[1].y, imgPts[2].y, imgPts[3].y);
-  // Crop edges clamped to the photo so a free crop dragged past the edge can't
-  // spill the dim onto the surround margin.
-  const dimL = clamp(bx, imgL, imgR);
-  const dimR = clamp(bx + bw, imgL, imgR);
-  const dimT = clamp(by, imgT, imgB);
-  const dimB = clamp(by + bh, imgT, imgB);
+  // The quad's box with the crop cut out (even-odd), clipped to the quad: a
+  // free crop dragged past the photo can't spill the dim onto the margin.
+  const dimPath = `${rectPath(imgL, imgT, imgR, imgB)}${rectPath(bx, by, bx + bw, by + bh)}`;
+  const dimOutline = imgPts.map((p) => `${num(p.x)},${num(p.y)}`).join(" ");
+  const dimClip = `safelight-crop-dim-${dimId.replace(/:/g, "")}`;
 
   const cornerHandles: { id: Handle; x: number; y: number }[] = [
     { id: "nw", x: bx, y: by },
@@ -331,12 +339,12 @@ export function CropBox({
         if (!dragRef.current) setHoverHandle(null);
       }}
     >
-      <div className={cls.layer}>
-        <div className={cls.piece} style={{ left: imgL, top: imgT, width: Math.max(0, imgR - imgL), height: Math.max(0, dimT - imgT) }} />
-        <div className={cls.piece} style={{ left: imgL, top: dimB, width: Math.max(0, imgR - imgL), height: Math.max(0, imgB - dimB) }} />
-        <div className={cls.piece} style={{ left: imgL, top: dimT, width: Math.max(0, dimL - imgL), height: Math.max(0, dimB - dimT) }} />
-        <div className={cls.piece} style={{ left: dimR, top: dimT, width: Math.max(0, imgR - dimR), height: Math.max(0, dimB - dimT) }} />
-      </div>
+      <svg data-dim="" className={cls.layer} width="100%" height="100%">
+        <clipPath id={dimClip}>
+          <polygon points={dimOutline} />
+        </clipPath>
+        <path className={cls.dim} d={dimPath} fillRule="evenodd" clipPath={`url(#${dimClip})`} />
+      </svg>
 
       <div className={cls.box} style={{ left: bx, top: by, width: bw, height: bh }}>
         <GuideSvg guide={guide} flip={guideFlip} w={bw} h={bh} />
