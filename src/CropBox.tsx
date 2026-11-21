@@ -4,18 +4,37 @@
 // be preserved in derived versions.
 
 // The crop box over the image: the box, its handles and guide, the dimmed
-// photo outside it, and the level line (Ctrl-drag, or right-drag by the
-// setting) with its angle beside the pointer. Until Safelight 3.2.0 it
-// was core's CropOverlay, moved as written.
+// photo outside it, the level line (Ctrl-drag, or right-drag by the setting)
+// and turning the photo by a drag outside the box, each with its angle beside
+// the pointer. Until Safelight 3.2.0 it was core's CropOverlay.
 
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { React, api } from "./rt";
-import type { CropRect } from "./safelight";
+import type { CropRect, CursorContribution } from "./safelight";
 import { constrainCropToImage, type LensDistort } from "./crop-maths";
 import { mat3Apply, type Mat3 } from "./transform";
 import { guideShapes, type CropGuide } from "./crop-guides";
-import { levelWith } from "./state";
+import { gridStroke, levelWith, type GridOptions } from "./state";
 import { cls } from "./styles";
+
+// A quarter arc with an arrowhead at each end, drawn twice (a white halo under
+// a dark core) like core's colour picker, so it reads over any photo.
+const ROTATE_ART = '<path d="M9 18A9 9 0 0 1 18 9"/><path d="M6 15L9 18L12 15"/><path d="M15 6L18 9L15 12"/>';
+
+/** The cursor outside the crop box, where a drag turns the photo. Named in
+ *  the vocabulary of core's crop cursors, so a cursor theme can restyle it. */
+export const ROTATE_CURSOR: CursorContribution = {
+  id: "crop-rotate",
+  image:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
+    '<g fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+    `<g stroke="#fff" stroke-width="3">${ROTATE_ART}</g>` +
+    `<g stroke="#111" stroke-width="1.4">${ROTATE_ART}</g>` +
+    "</g></svg>",
+  hotspotX: 12,
+  hotspotY: 12,
+  fallback: "grab",
+};
 
 // Pointer position in an element's local LAYOUT pixels, the space the handles
 // are drawn in: Preferences ▸ Interface scale zooms <body>, and under CSS zoom
@@ -44,7 +63,8 @@ type Handle =
   | "sw"
   | "w"
   | "move"
-  | "level";
+  | "level"
+  | "rotate";
 
 const MIN = 0.04; // smallest crop, normalized to image
 const HIT = 12; // px hit radius for handles
@@ -64,18 +84,66 @@ const rectPath = (l: number, t: number, r: number, b: number) =>
 // A shorter line is a click, not a line to level to.
 const MIN_LINE = 6;
 
+/** An angle to a hundredth of a degree, as the Straighten slider's value field
+ *  fits it; 0.005° is under a pixel across an 8000 px photo. */
+const hundredth = (deg: number) => Math.round(deg * 100) / 100;
+
 /** The straighten that brings a line drawn (dx, dy) level: its tilt, reduced
  *  to the nearest axis, added to the straighten already there. */
 const levelFor = (straightenDeg: number, dx: number, dy: number) => {
   let residual = (Math.atan2(dy, dx) * 180) / Math.PI;
   while (residual > 45) residual -= 90;
   while (residual < -45) residual += 90;
-  return clamp(straightenDeg + residual, -45, 45);
+  return hundredth(clamp(straightenDeg + residual, -45, 45));
 };
 
 /** Whether this pointer starts a level line, under the gesture setting. */
 const startsLevel = (e: { button: number; ctrlKey: boolean; metaKey: boolean }) =>
   levelWith() === "right" ? e.button === 2 : e.button === 0 && (e.ctrlKey || e.metaKey);
+
+/** The angle (x, y) has swept about (cx, cy) since (sx, sy), in degrees,
+ *  clockwise on screen, the shorter way round. */
+const sweepAbout = (cx: number, cy: number, sx: number, sy: number, x: number, y: number) => {
+  let deg = ((Math.atan2(y - cy, x - cx) - Math.atan2(sy - cy, sx - cx)) * 180) / Math.PI;
+  if (deg > 180) deg -= 360;
+  if (deg <= -180) deg += 360;
+  return deg;
+};
+
+/** The angle beside the pointer, as the panel's Straighten slider reads it. */
+const readout = (straightenDeg: number) => `${(-straightenDeg).toFixed(1)}°`;
+
+// How far the readout sits from the pointer.
+const READOUT_GAP = 14;
+
+/** Where the readout for a pointer at (x, y) goes: on the side facing the
+ *  centre of `rect`, so it stays on the canvas near any edge. */
+const readoutAt = (x: number, y: number, rect: Rect): CSSProperties => {
+  const left = x > rect.x + rect.w / 2;
+  const up = y > rect.y + rect.h / 2;
+  return {
+    left: left ? x - READOUT_GAP : x + READOUT_GAP,
+    top: up ? y - READOUT_GAP : y + READOUT_GAP,
+    transform: left || up ? `translate(${left ? "-100%" : "0"}, ${up ? "-100%" : "0"})` : undefined,
+  };
+};
+
+/** A turn of the photo by a drag outside the box: about the box's centre as
+ *  it was when the drag began, from the straighten then. */
+interface TurnDrag {
+  mode: "rotate";
+  startCrop: CropRect;
+  sx: number;
+  sy: number;
+  cx: number;
+  cy: number;
+  startDeg: number;
+  /** The straighten last handed on. */
+  deg: number;
+  turned: boolean;
+}
+
+type Drag = { mode: Exclude<Handle, "rotate">; startCrop: CropRect; sx: number; sy: number } | TurnDrag;
 
 // CSS cursor matching the handle under the pointer, so resizing reads as
 // resizing rather than a bare crosshair. Resolved through the shared cursor
@@ -96,6 +164,8 @@ const cursorFor = (h: Handle | null): string => {
     case "e":
     case "w":
       return resolveCursorCss("crop-resize-ew");
+    case "rotate":
+      return resolveCursorCss(ROTATE_CURSOR.id);
     default:
       return resolveCursorCss("crosshair");
   }
@@ -114,9 +184,15 @@ export interface CropBoxProps {
   constrain: boolean;
   guide: CropGuide;
   guideFlip: number; // 0-3: identity / mirror-x / mirror-y / 180°
+  grid: GridOptions; // the Grid guide's, and the one drawn while turning
   onChange: (crop: CropRect) => void;
   onCommit: () => void;
   onLevel: (deg: number) => void;
+  /** A drag outside the box turned the photo to `deg`; `from` is the crop
+   *  when the drag began. */
+  onTurn: (deg: number, from: CropRect) => void;
+  /** The turn ended, having turned the photo. */
+  onTurnEnd: () => void;
 }
 
 export function CropBox({
@@ -132,19 +208,19 @@ export function CropBox({
   constrain,
   guide,
   guideFlip,
+  grid,
   onChange,
   onCommit,
   onLevel,
+  onTurn,
+  onTurnEnd,
 }: CropBoxProps) {
-  const dragRef = React.useRef<{
-    mode: Handle;
-    startCrop: CropRect;
-    sx: number;
-    sy: number;
-  } | null>(null);
+  const dragRef = React.useRef<Drag | null>(null);
   const [line, setLine] = React.useState<{ x: number; y: number; dx: number; dy: number } | null>(
     null,
   );
+  // A turn under way: where the pointer is, and the straighten it has reached.
+  const [turn, setTurn] = React.useState<{ x: number; y: number; deg: number } | null>(null);
   // Drives the hover cursor; also reflects the active handle while dragging.
   const [hoverHandle, setHoverHandle] = React.useState<Handle | null>(null);
   const dimId = React.useId();
@@ -220,12 +296,28 @@ export function CropBox({
   // stays put, the perpendicular axis grows symmetrically), not just the corners.
   const handles = [...cornerHandles, ...edgeHandles];
 
-  const hitTest = (px: number, py: number): Handle | null => {
+  // Off the handles, inside the box moves it and outside turns the photo.
+  const hitTest = (px: number, py: number): Handle => {
     for (const h of handles) {
       if (Math.abs(px - h.x) <= HIT && Math.abs(py - h.y) <= HIT) return h.id;
     }
     if (px >= bx && px <= bx + bw && py >= by && py <= by + bh) return "move";
-    return null;
+    return "rotate";
+  };
+
+  const turnTo = (d: TurnDrag, px: number, py: number) => {
+    // Clockwise on screen turns the photo clockwise: the straighten falls.
+    const deg = hundredth(clamp(d.startDeg - sweepAbout(d.cx, d.cy, d.sx, d.sy, px, py), -45, 45));
+    setTurn({ x: px, y: py, deg });
+    if (deg === d.deg) return;
+    d.deg = deg;
+    d.turned = true;
+    onTurn(deg, d.startCrop);
+  };
+
+  const endTurn = (d: TurnDrag) => {
+    setTurn(null);
+    if (d.turned) onTurnEnd();
   };
 
   const onPointerDown = (e: ReactPointerEvent) => {
@@ -243,8 +335,14 @@ export function CropBox({
       return;
     }
     const mode = hitTest(px, py);
-    if (!mode) return;
     setHoverHandle(mode);
+    if (mode === "rotate") {
+      const cx = bx + bw / 2;
+      const cy = by + bh / 2;
+      dragRef.current = { mode, startCrop: crop, sx: px, sy: py, cx, cy, startDeg: straightenDeg, deg: straightenDeg, turned: false };
+      setTurn({ x: px, y: py, deg: straightenDeg });
+      return;
+    }
     dragRef.current = { mode, startCrop: crop, sx: px, sy: py };
   };
 
@@ -260,6 +358,10 @@ export function CropBox({
     const { x: px, y: py } = frameXY(e);
     if (d.mode === "level") {
       setLine((l) => (l ? { ...l, dx: px - d.sx, dy: py - d.sy } : l));
+      return;
+    }
+    if (d.mode === "rotate") {
+      turnTo(d, px, py);
       return;
     }
     // Screen delta -> straightened-frame delta (both now in layout px).
@@ -304,12 +406,18 @@ export function CropBox({
       if (Math.abs(dx) + Math.abs(dy) > MIN_LINE) onLevel(levelFor(straightenDeg, dx, dy));
       return;
     }
+    if (d.mode === "rotate") {
+      const { x: px, y: py } = frameXY(e);
+      turnTo(d, px, py);
+      endTurn(d);
+      return;
+    }
     onCommit();
   };
 
   // The system can end a drag without its pointerup: pointercancel, or the capture
-  // lost to another window or a desktop gesture. A resize or move keeps the crop it
-  // reached, as on release; a level line, with no end point, is dropped. Without
+  // lost to another window or a desktop gesture. A resize, move or turn keeps what
+  // it reached, as on release; a level line, with no end point, is dropped. Without
   // this the box went on following the bare pointer.
   const onPointerEnd = () => {
     const d = dragRef.current;
@@ -317,6 +425,10 @@ export function CropBox({
     if (!d) return;
     if (d.mode === "level") {
       setLine(null);
+      return;
+    }
+    if (d.mode === "rotate") {
+      endTurn(d);
       return;
     }
     onCommit();
@@ -347,7 +459,8 @@ export function CropBox({
       </svg>
 
       <div className={cls.box} style={{ left: bx, top: by, width: bw, height: bh }}>
-        <GuideSvg guide={guide} flip={guideFlip} w={bw} h={bh} />
+        {/* While turning, the grid shows what's level and plumb in the box. */}
+        <GuideSvg guide={turn ? "grid" : guide} flip={turn ? 0 : guideFlip} grid={grid} w={bw} h={bh} />
       </div>
 
       {handles.map((h) => (
@@ -367,9 +480,13 @@ export function CropBox({
         </svg>
       )}
       {line && Math.abs(line.dx) + Math.abs(line.dy) > MIN_LINE && (
-        // The angle as the panel's Straighten slider will read it (negated).
-        <div className={cls.readout} style={{ left: line.x + line.dx + 14, top: line.y + line.dy + 14 }}>
-          {`${(-levelFor(straightenDeg, line.dx, line.dy)).toFixed(1)}°`}
+        <div className={cls.readout} style={readoutAt(line.x + line.dx, line.y + line.dy, rect)}>
+          {readout(levelFor(straightenDeg, line.dx, line.dy))}
+        </div>
+      )}
+      {turn && (
+        <div className={cls.readout} style={readoutAt(turn.x, turn.y, rect)}>
+          {readout(turn.deg)}
         </div>
       )}
     </div>
@@ -377,7 +494,7 @@ export function CropBox({
 }
 
 function applyDrag(
-  mode: Handle,
+  mode: Exclude<Handle, "level" | "rotate">,
   c: CropRect,
   dnx: number,
   dny: number,
@@ -478,19 +595,23 @@ function applyDrag(
 // The active composition guide, drawn in the crop box's pixel space. `flip`
 // mirrors the shapes (Shift+O): 1 = horizontal, 2 = vertical, 3 = both (180°);
 // asymmetric guides (golden, diagonal, triangle, spiral) get 4 orientations.
+// The Grid guide takes the grid's size, colour and opacity.
 function GuideSvg({
   guide,
   flip,
+  grid,
   w,
   h,
 }: {
   guide: CropGuide;
   flip: number;
+  grid: GridOptions;
   w: number;
   h: number;
 }) {
   if (w <= 1 || h <= 1) return null;
-  const { lines, paths } = guideShapes(guide, w, h);
+  const { lines, paths } = guideShapes(guide, w, h, grid.size);
+  const lineStroke = guide === "grid" ? gridStroke(grid) : "rgba(255,255,255,0.4)";
   const transform =
     flip === 1
       ? `translate(${w} 0) scale(-1 1)`
@@ -509,7 +630,7 @@ function GuideSvg({
           y1={l.y1}
           x2={l.x2}
           y2={l.y2}
-          stroke="rgba(255,255,255,0.4)"
+          stroke={lineStroke}
           strokeWidth={1}
         />
       ))}

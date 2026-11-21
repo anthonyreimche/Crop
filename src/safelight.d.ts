@@ -163,10 +163,40 @@ export interface SettingsSelectField {
   options: { value: string; label: string }[];
 }
 
+export interface SettingsNumberField {
+  key: string;
+  label: string;
+  hint?: string;
+  type: "number";
+  default: number;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
 /** Declarative settings, drawn by the host as the extension's section. */
 export interface SettingsContribution {
   title?: string;
-  fields: SettingsSelectField[];
+  fields: (SettingsSelectField | SettingsNumberField)[];
+}
+
+/** A component mounted into a named region of core's UI. The
+ *  "develop-canvas-overlay" layer covers the Develop canvas, click-through. */
+export interface SlotContribution {
+  id: string;
+  slot: "develop-canvas-overlay";
+  component: ComponentType;
+  order?: number;
+}
+
+/** A named cursor: an inline `<svg…>` image with its hotspot, and the CSS
+ *  keyword used if the image can't load. */
+export interface CursorContribution {
+  id: string;
+  image: string;
+  hotspotX?: number;
+  hotspotY?: number;
+  fallback?: string;
 }
 
 /** The theme's CSS variables as `var(--color-…)` strings. */
@@ -208,6 +238,12 @@ export interface OverlayRect {
 
 /** The develop canvas's mapping, for an overlay. */
 export interface DevelopOverlayState {
+  /** Where the shown pixels sit, in canvas coordinates: the visible window
+   *  when zoomed in. Null until first layout. */
+  rect: OverlayRect | null;
+  /** Where the whole (cropped) photo sits in the same coordinates, past the
+   *  window when zoomed in. Null until first layout. */
+  imageRect: OverlayRect | null;
   /** The region of the transformed image the frame shows; null until first
    *  layout. */
   region: CropRect | null;
@@ -249,6 +285,8 @@ export interface SafelightAPI {
   registerStylesheet(c: StylesheetContribution): void;
   registerKeybinding(c: KeyActionContribution): void;
   registerSettings(c: SettingsContribution): void;
+  registerSlot(c: SlotContribution): void;
+  registerCursor(c: CursorContribution): void;
   /** Persisted per-extension key/value settings. */
   settings: {
     get<T>(key: string, fallback: T): T;

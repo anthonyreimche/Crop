@@ -29,6 +29,10 @@ export function nextGuide(g: CropGuide): CropGuide {
   return CROP_GUIDES[(i + 1) % CROP_GUIDES.length].id;
 }
 
+/** The grid's cells each way: the Grid guide's, Show grid's, and the grid
+ *  drawn while turning the photo. */
+export const GRID_SIZES = { min: 2, max: 20, initial: 8 } as const;
+
 export interface GuideShapes {
   lines: { x1: number; y1: number; x2: number; y2: number }[];
   paths: string[]; // SVG path "d" strings (for the spiral)
@@ -76,7 +80,7 @@ function goldenSpiralPath(w: number, h: number): string {
   return d.trim();
 }
 
-export function guideShapes(guide: CropGuide, w: number, h: number): GuideShapes {
+export function guideShapes(guide: CropGuide, w: number, h: number, gridSize: number = GRID_SIZES.initial): GuideShapes {
   const lines: GuideShapes["lines"] = [];
   const paths: string[] = [];
   const vline = (fx: number) => lines.push({ x1: fx * w, y1: 0, x2: fx * w, y2: h });
@@ -96,8 +100,8 @@ export function guideShapes(guide: CropGuide, w: number, h: number): GuideShapes
       hline(PHI_HI);
       break;
     case "grid": {
-      for (let i = 1; i < 8; i++) vline(i / 8);
-      for (let j = 1; j < 8; j++) hline(j / 8);
+      for (let i = 1; i < gridSize; i++) vline(i / gridSize);
+      for (let j = 1; j < gridSize; j++) hline(j / gridSize);
       break;
     }
     case "diagonal": {

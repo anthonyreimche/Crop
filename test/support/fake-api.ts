@@ -1,16 +1,18 @@
 // A stand-in Safelight API over real React and zustand. The develop store holds
 // the crop, straighten and transform the way core's does and records every
-// write; the catalogue store holds the open photo's stored size; the canvas tool
-// and the shared variables are kept as core would keep them. Core's Panel draws
-// its children, and core's Slider is a stub that keeps the props it was last
-// rendered with, so a test can drive it the way the real one would. The
-// extension's own settings are kept in a map, as core persists them.
+// write; the catalogue store holds the open photo's stored size; the canvas
+// tool, slots, cursors and the shared variables are kept as core would keep
+// them. Core's Panel draws its children, and core's Slider is a stub that keeps
+// the props it was last rendered with, so a test can drive it the way the real
+// one would. The extension's own settings are kept in a map, as core persists
+// them.
 
 import * as React from "react";
 import { create } from "zustand";
 import type {
   CanvasTool,
   CatalogStoreState,
+  CursorContribution,
   DevelopOverlayState,
   DevelopParams,
   DevelopStoreState,
@@ -22,6 +24,7 @@ import type {
   SettingsContribution,
   SettingsState,
   SliderProps,
+  SlotContribution,
   StoreApi,
   StylesheetContribution,
   UiTokens,
@@ -68,6 +71,8 @@ export interface Rig {
   stylesheets: StylesheetContribution[];
   keys: KeyActionContribution[];
   settingsSections: SettingsContribution[];
+  slots: SlotContribution[];
+  cursors: CursorContribution[];
   /** Set one of the extension's settings, as Preferences would. */
   setSetting(key: string, value: unknown): void;
   /** The canvas tool this extension holds, or null. */
@@ -87,6 +92,8 @@ export function fakeApi({
   const stylesheets: StylesheetContribution[] = [];
   const keys: KeyActionContribution[] = [];
   const settingsSections: SettingsContribution[] = [];
+  const slots: SlotContribution[] = [];
+  const cursors: CursorContribution[] = [];
   const stored = new Map<string, unknown>();
   const settingListeners = new Set<(key: string, value: unknown) => void>();
   const setSetting = (key: string, value: unknown) => {
@@ -120,7 +127,12 @@ export function fakeApi({
     activePhotoId: "p",
   }));
   const settings: StoreApi<SettingsState> = create<SettingsState>()(() => ({ uiScale: 1 }));
-  const overlay: StoreApi<DevelopOverlayState> = create<DevelopOverlayState>()(() => ({ region: null, imageAspect: 1.5 }));
+  const overlay: StoreApi<DevelopOverlayState> = create<DevelopOverlayState>()(() => ({
+    rect: null,
+    imageRect: null,
+    region: null,
+    imageAspect: 1.5,
+  }));
 
   function Panel({ children, title }: PanelProps) {
     return React.createElement("section", { "aria-label": title }, children);
@@ -143,6 +155,8 @@ export function fakeApi({
     registerStylesheet: (c) => void stylesheets.push(c),
     registerKeybinding: (c) => void keys.push(c),
     registerSettings: (c) => void settingsSections.push(c),
+    registerSlot: (c) => void slots.push(c),
+    registerCursor: (c) => void cursors.push(c),
     settings: {
       get: <T>(key: string, fallback: T) => (stored.has(key) ? (stored.get(key) as T) : fallback),
       set: setSetting,
@@ -158,7 +172,13 @@ export function fakeApi({
       setCanvasTool: (t) => tool.setState({ tool: t }),
       useCanvasToolHeld: () => tool((s) => s.tool !== null),
     },
-    cursors: { resolve: (token) => CURSORS[token] ?? "default" },
+    cursors: {
+      resolve: (token) => {
+        const own = cursors.find((c) => c.id === token);
+        if (own) return `url("${own.id}.svg") ${own.hotspotX ?? 0} ${own.hotspotY ?? 0}, ${own.fallback ?? "auto"}`;
+        return CURSORS[token] ?? "default";
+      },
+    },
     variables: {
       register: (name, init) => {
         if (!variables.has(name)) variables.set(name, init.initial);
@@ -192,6 +212,8 @@ export function fakeApi({
     stylesheets,
     keys,
     settingsSections,
+    slots,
+    cursors,
     setSetting,
     held: () => tool.getState().tool,
     sliders: (root) =>

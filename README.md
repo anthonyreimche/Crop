@@ -5,16 +5,22 @@ photo's geometry.
 
 - **Crop** opens crop mode: the canvas shows the whole photo past the crop,
   with the crop box over it. Drag the edges or corners to crop, drag inside to
-  move, and Ctrl-drag across a line in the photo to level it. **Done** or
-  Escape closes it.
+  move, and Ctrl-drag across a line in the photo to level it. Drag outside the
+  box to turn the photo: the angle shows beside the pointer and a grid fills
+  the box until you let go. **Done** or Escape closes it.
 - **Aspect:** Free, Original (the photo's own), 1:1, 3:2, 4:3, 16:9 or a
   custom ratio. A locked ratio flips orientation as you drag a corner.
 - **Straighten** turns the photo up to 45° either way.
-- **Overlay** guides in crop mode: thirds, golden, diagonal, triangle,
-  spiral and more. O cycles them, Shift+O flips them; both are in
-  Preferences ▸ Shortcuts.
+- **Overlay** guides in crop mode: thirds, golden, diagonal, triangle, grid
+  and spiral. O cycles them, Shift+O flips them; both are in
+  Preferences ▸ Shortcuts. With Grid chosen, **Grid size** sets its cells
+  each way, 2 to 20.
 - **Constrain to image** keeps the crop inside the photo as you straighten
   or transform it. The Transform extension reads the same setting.
+- **Show grid** draws the grid over the photo in Develop, outside crop mode,
+  at the same grid size. Ctrl+Alt+O toggles it (Preferences ▸ Shortcuts). The
+  grid's colour and opacity are in Preferences ▸ Extensions ▸ Crop &
+  Straighten. The grid settings are kept across restarts.
 
 Right-click the panel's header and choose **Reset to defaults** to put the
 crop and straighten back as one step.

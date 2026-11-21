@@ -382,15 +382,19 @@ var C = [
 function w(e) {
 	return C[(C.findIndex((t) => t.id === e) + 1) % C.length].id;
 }
-var T = .5 - .5 / Math.sqrt(5), E = .5 + .5 / Math.sqrt(5);
-function D(e, t, n, r, i, a) {
+var T = {
+	min: 2,
+	max: 20,
+	initial: 8
+}, E = .5 - .5 / Math.sqrt(5), D = .5 + .5 / Math.sqrt(5);
+function O(e, t, n, r, i, a) {
 	let o = i - n, s = a - r, c = ((e - n) * o + (t - r) * s) / (o * o + s * s);
 	return {
 		x: n + c * o,
 		y: r + c * s
 	};
 }
-function O(e, t) {
+function k(e, t) {
 	let n = (1 + Math.sqrt(5)) / 2, r = e / n, i = t - t / n, a = 2 / Math.PI * Math.log(n), o = Math.hypot(Math.max(r, e - r), Math.max(i, t - i)) * 1.15, s = Math.atan2(-i, e - r), c = Math.PI / 2 * 4.5, l = "";
 	for (let e = 0; e <= 120; e++) {
 		let t = e / 120 * c, n = o * Math.exp(-a * t), u = s + t, d = r + n * Math.cos(u), f = i + n * Math.sin(u);
@@ -398,13 +402,13 @@ function O(e, t) {
 	}
 	return l.trim();
 }
-function k(e, t, n) {
-	let r = [], i = [], a = (e) => r.push({
+function ee(e, t, n, r = T.initial) {
+	let i = [], a = [], o = (e) => i.push({
 		x1: e * t,
 		y1: 0,
 		x2: e * t,
 		y2: n
-	}), o = (e) => r.push({
+	}), s = (e) => i.push({
 		x1: 0,
 		y1: e * n,
 		x2: t,
@@ -412,33 +416,33 @@ function k(e, t, n) {
 	});
 	switch (e) {
 		case "thirds":
-			a(1 / 3), a(2 / 3), o(1 / 3), o(2 / 3);
+			o(1 / 3), o(2 / 3), s(1 / 3), s(2 / 3);
 			break;
 		case "golden":
-			a(T), a(E), o(T), o(E);
+			o(E), o(D), s(E), s(D);
 			break;
 		case "grid":
-			for (let e = 1; e < 8; e++) a(e / 8);
-			for (let e = 1; e < 8; e++) o(e / 8);
+			for (let e = 1; e < r; e++) o(e / r);
+			for (let e = 1; e < r; e++) s(e / r);
 			break;
 		case "diagonal": {
 			let e = Math.min(t, n);
-			r.push({
+			i.push({
 				x1: 0,
 				y1: 0,
 				x2: e,
 				y2: e
-			}), r.push({
+			}), i.push({
 				x1: t,
 				y1: 0,
 				x2: t - e,
 				y2: e
-			}), r.push({
+			}), i.push({
 				x1: 0,
 				y1: n,
 				x2: e,
 				y2: n - e
-			}), r.push({
+			}), i.push({
 				x1: t,
 				y1: n,
 				x2: t - e,
@@ -447,33 +451,33 @@ function k(e, t, n) {
 			break;
 		}
 		case "triangle": {
-			r.push({
+			i.push({
 				x1: 0,
 				y1: 0,
 				x2: t,
 				y2: n
 			});
-			let e = D(t, 0, 0, 0, t, n);
-			r.push({
+			let e = O(t, 0, 0, 0, t, n);
+			i.push({
 				x1: t,
 				y1: 0,
 				x2: e.x,
 				y2: e.y
 			});
-			let i = D(0, n, 0, 0, t, n);
-			r.push({
+			let r = O(0, n, 0, 0, t, n);
+			i.push({
 				x1: 0,
 				y1: n,
-				x2: i.x,
-				y2: i.y
+				x2: r.x,
+				y2: r.y
 			});
 			break;
 		}
-		case "spiral": a(T), a(E), o(T), o(E), i.push(O(t, n));
+		case "spiral": o(E), o(D), s(E), s(D), a.push(k(t, n));
 	}
 	return {
-		lines: r,
-		paths: i
+		lines: i,
+		paths: a
 	};
 }
 //#endregion
@@ -488,218 +492,294 @@ var A = {
 		...e
 	};
 	for (let e of j) e();
-}, N = () => A, P = (e) => A.cropping !== e && M({ cropping: e }), ee = (e) => M({ guide: e }), te = () => M({ guide: w(A.guide) }), ne = () => M({ guideFlip: (A.guideFlip + 1) % 4 }), F = (e) => (j.add(e), () => void j.delete(e)), I = () => e.useSyncExternalStore(F, N), L = () => M({
+}, N = () => A, P = (e) => A.cropping !== e && M({ cropping: e }), F = (e) => M({ guide: e }), I = () => M({ guide: w(A.guide) }), L = () => M({ guideFlip: (A.guideFlip + 1) % 4 }), R = (e) => (j.add(e), () => void j.delete(e)), z = () => e.useSyncExternalStore(R, N), te = () => M({
 	cropping: !1,
 	guide: "thirds",
 	guideFlip: 0
-}), R = "safelight.crop.options", z = {
+}), B = "safelight.crop.options", ne = {
 	constrain: !0,
 	aspect: -1
 };
-function B() {
-	t.variables.register(R, {
-		initial: z,
+function re() {
+	t.variables.register(B, {
+		initial: ne,
 		description: "Crop & Straighten: whether a crop keeps inside the image, and its aspect lock."
 	});
 }
-var V = () => t.variables.get("safelight.crop.options")?.value ?? z, H = (e) => void t.variables.update(R, (t) => ({
+var ie = () => t.variables.get("safelight.crop.options")?.value ?? ne, V = (e) => void t.variables.update(B, (t) => ({
 	...t,
 	...e
 }));
-function U() {
-	let [n, r] = e.useState(V);
-	return e.useEffect(() => t.variables.subscribe(R, (e) => r(e.value)), []), n;
+function H() {
+	let [n, r] = e.useState(ie);
+	return e.useEffect(() => t.variables.subscribe(B, (e) => r(e.value)), []), n;
 }
-function W() {
+function U() {
 	let { sourceSize: e } = t.stores.useDevelopStore.getState();
 	if (e.width > 0 && e.height > 0) return e.width / e.height;
 	let { photos: n, activePhotoId: r } = t.stores.useCatalogStore.getState(), i = n.find((e) => e.id === r);
 	return i && i.width > 0 && i.height > 0 ? i.width / i.height : 1;
 }
-function re() {
+function ae() {
 	return t.stores.useDevelopStore((e) => e.sourceSize), t.stores.useCatalogStore((e) => {
 		let t = e.photos.find((t) => t.id === e.activePhotoId);
 		return t ? `${t.width}x${t.height}` : "";
-	}), W();
+	}), U();
 }
-var ie = "levelWith";
-function ae() {
+var oe = "levelWith", W = "showGrid", G = "gridSize", se = "gridColour", K = "gridOpacity", ce = /* @__PURE__ */ new Set([
+	W,
+	G,
+	se,
+	K
+]), q = {
+	min: 10,
+	max: 100,
+	initial: 40
+};
+function le() {
 	t.registerSettings({
 		title: "Crop & Straighten",
-		fields: [{
-			key: ie,
-			label: "Level line",
-			hint: "How you draw a line along the horizon or an edge to level the photo while cropping. Right-drag leaves Ctrl-drag to crop as a plain drag.",
-			type: "select",
-			default: "ctrl",
-			options: [{
-				value: "ctrl",
-				label: "Ctrl-drag"
-			}, {
-				value: "right",
-				label: "Right-drag"
-			}]
-		}]
+		fields: [
+			{
+				key: oe,
+				label: "Level line",
+				hint: "How you draw a line along the horizon or an edge to level the photo while cropping. Right-drag leaves Ctrl-drag to crop as a plain drag.",
+				type: "select",
+				default: "ctrl",
+				options: [{
+					value: "ctrl",
+					label: "Ctrl-drag"
+				}, {
+					value: "right",
+					label: "Right-drag"
+				}]
+			},
+			{
+				key: se,
+				label: "Grid colour",
+				hint: "The colour of the grid's lines. Black shows better over bright photos.",
+				type: "select",
+				default: "white",
+				options: [{
+					value: "white",
+					label: "White"
+				}, {
+					value: "black",
+					label: "Black"
+				}]
+			},
+			{
+				key: K,
+				label: "Grid opacity",
+				hint: "How strongly the grid's lines show, in percent.",
+				type: "number",
+				default: q.initial,
+				min: q.min,
+				max: q.max,
+				step: 5
+			}
+		]
 	});
 }
-var G = () => t.settings.get("levelWith", "ctrl") === "right" ? "right" : "ctrl";
-function oe() {
-	let [n, r] = e.useState(G);
+var J = () => t.settings.get("levelWith", "ctrl") === "right" ? "right" : "ctrl";
+function ue() {
+	let [n, r] = e.useState(J);
 	return e.useEffect(() => t.settings.onChange((e) => {
-		e === "levelWith" && r(G());
+		e === "levelWith" && r(J());
+	}), []), n;
+}
+var de = (e, t) => typeof e == "number" && Number.isFinite(e) ? Math.min(t.max, Math.max(t.min, Math.round(e))) : t.initial, fe = () => ({
+	show: t.settings.get(W, !1) === !0,
+	size: de(t.settings.get(G, T.initial), T),
+	colour: t.settings.get("gridColour", "white") === "black" ? "black" : "white",
+	opacity: de(t.settings.get(K, q.initial), q)
+}), pe = (e) => t.settings.set(W, e), me = () => pe(!fe().show), he = (e) => t.settings.set(G, de(e, T)), ge = ({ colour: e, opacity: t }) => `rgba(${e === "black" ? "0, 0, 0" : "255, 255, 255"}, ${t / 100})`;
+function _e() {
+	let [n, r] = e.useState(fe);
+	return e.useEffect(() => t.settings.onChange((e) => {
+		ce.has(e) && r(fe());
 	}), []), n;
 }
 //#endregion
 //#region src/styles.ts
-var K = "safelight-crop", q = {
-	panel: `${K}-panel`,
-	toggle: `${K}-toggle`,
-	on: `${K}-on`,
-	grid: `${K}-grid`,
-	choice: `${K}-choice`,
-	active: `${K}-active`,
-	custom: `${K}-custom`,
-	number: `${K}-number`,
-	colon: `${K}-colon`,
-	customButton: `${K}-custom-button`,
-	guides: `${K}-guides`,
-	guidesHeader: `${K}-guides-header`,
-	check: `${K}-check`,
-	hint: `${K}-hint`,
-	reset: `${K}-reset`,
-	canvas: `${K}-canvas`,
-	layer: `${K}-layer`,
-	dim: `${K}-dim`,
-	box: `${K}-box`,
-	handle: `${K}-handle`,
-	readout: `${K}-readout`
+var Y = "safelight-crop", X = {
+	panel: `${Y}-panel`,
+	toggle: `${Y}-toggle`,
+	on: `${Y}-on`,
+	grid: `${Y}-grid`,
+	choice: `${Y}-choice`,
+	active: `${Y}-active`,
+	custom: `${Y}-custom`,
+	number: `${Y}-number`,
+	colon: `${Y}-colon`,
+	customButton: `${Y}-custom-button`,
+	guides: `${Y}-guides`,
+	guidesHeader: `${Y}-guides-header`,
+	check: `${Y}-check`,
+	hint: `${Y}-hint`,
+	reset: `${Y}-reset`,
+	canvas: `${Y}-canvas`,
+	layer: `${Y}-layer`,
+	dim: `${Y}-dim`,
+	box: `${Y}-box`,
+	handle: `${Y}-handle`,
+	readout: `${Y}-readout`,
+	photoGrid: `${Y}-photo-grid`
 };
-function se(e) {
+function ve(e) {
 	let t = "border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 11px;", n = `background-color: ${e.surface2}; color: ${e.textSecondary};`, r = `background-color: ${e.surface3}; color: ${e.textPrimary};`;
 	return `
-:where(.${q.panel} > :not(:last-child)) { margin-block: 0 0.5rem; }
-:where(.${q.toggle}) { width: 100%; ${t} font-weight: 500; ${n} }
-:where(.${q.toggle}:hover) { ${r} }
-:where(.${q.toggle}.${q.on}) { background-color: ${e.sliderFill}; color: ${e.white}; }
-:where(.${q.toggle}.${q.on}:hover) { background-color: ${e.surface4}; }
-:where(.${q.grid}) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.25rem; }
-:where(.${q.choice}) { ${t} ${n} }
-:where(.${q.choice}:hover), :where(.${q.choice}.${q.active}) { ${r} }
-:where(.${q.custom}) { display: flex; align-items: center; gap: 0.25rem; }
-:where(.${q.number}) { width: 3rem; min-width: 0; border-radius: 0.25rem; background-color: ${e.surface2}; padding: 0.25rem 0.375rem; text-align: center; font-size: 11px; color: ${e.textPrimary}; outline: none; border: 0; }
-:where(.${q.number}:focus) { background-color: ${e.surface3}; }
-:where(.${q.colon}) { font-size: 11px; color: ${e.textMuted}; }
-:where(.${q.customButton}) { min-width: 0; flex: 1 1 0%; }
-:where(.${q.customButton}:disabled) { opacity: 0.4; }
-:where(.${q.guides} > :not(:last-child)) { margin-block: 0 0.25rem; }
-:where(.${q.guidesHeader}) { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: ${e.textMuted}; }
-:where(.${q.check}) { display: flex; cursor: pointer; align-items: center; gap: 0.5rem; font-size: 11px; color: ${e.textSecondary}; }
-:where(.${q.check} input) { accent-color: ${e.sliderFill}; }
-:where(.${q.hint}) { font-size: 10px; line-height: 1.375; color: ${e.textMuted}; margin: 0; }
-:where(.${q.reset}) { width: 100%; ${t} ${n} }
-:where(.${q.reset}:hover) { ${r} }
-:where(.${q.canvas}) { position: absolute; inset: 0; touch-action: none; }
-:where(.${q.layer}) { pointer-events: none; position: absolute; inset: 0; }
-:where(.${q.dim}) { fill: rgba(0, 0, 0, 0.55); }
-:where(.${q.box}) { pointer-events: none; position: absolute; border: 1px solid rgba(255, 255, 255, 0.8); }
-:where(.${q.handle}) { pointer-events: none; position: absolute; width: 0.625rem; height: 0.625rem; transform: translate(-50%, -50%); border-radius: 0.125rem; border: 1px solid rgba(0, 0, 0, 0.4); background: #fff; }
-:where(.${q.readout}) { pointer-events: none; position: absolute; border-radius: 0.25rem; background: rgba(0, 0, 0, 0.75); padding: 0.125rem 0.375rem; font-size: 11px; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
-html.sl-larger-text .${q.hint}, html.sl-larger-text .${q.guidesHeader} { font-size: 12px !important; }
+:where(.${X.panel} > :not(:last-child)) { margin-block: 0 0.5rem; }
+:where(.${X.toggle}) { width: 100%; ${t} font-weight: 500; ${n} }
+:where(.${X.toggle}:hover) { ${r} }
+:where(.${X.toggle}.${X.on}) { background-color: ${e.sliderFill}; color: ${e.white}; }
+:where(.${X.toggle}.${X.on}:hover) { background-color: ${e.surface4}; }
+:where(.${X.grid}) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.25rem; }
+:where(.${X.choice}) { ${t} ${n} }
+:where(.${X.choice}:hover), :where(.${X.choice}.${X.active}) { ${r} }
+:where(.${X.custom}) { display: flex; align-items: center; gap: 0.25rem; }
+:where(.${X.number}) { width: 3rem; min-width: 0; border-radius: 0.25rem; background-color: ${e.surface2}; padding: 0.25rem 0.375rem; text-align: center; font-size: 11px; color: ${e.textPrimary}; outline: none; border: 0; }
+:where(.${X.number}:focus) { background-color: ${e.surface3}; }
+:where(.${X.colon}) { font-size: 11px; color: ${e.textMuted}; }
+:where(.${X.customButton}) { min-width: 0; flex: 1 1 0%; }
+:where(.${X.customButton}:disabled) { opacity: 0.4; }
+:where(.${X.guides} > :not(:last-child)) { margin-block: 0 0.25rem; }
+:where(.${X.guidesHeader}) { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: ${e.textMuted}; }
+:where(.${X.check}) { display: flex; cursor: pointer; align-items: center; gap: 0.5rem; font-size: 11px; color: ${e.textSecondary}; }
+:where(.${X.check} input) { accent-color: ${e.sliderFill}; }
+:where(.${X.hint}) { font-size: 10px; line-height: 1.375; color: ${e.textMuted}; margin: 0; }
+:where(.${X.reset}) { width: 100%; ${t} ${n} }
+:where(.${X.reset}:hover) { ${r} }
+:where(.${X.canvas}) { position: absolute; inset: 0; touch-action: none; }
+:where(.${X.layer}) { pointer-events: none; position: absolute; inset: 0; }
+:where(.${X.dim}) { fill: rgba(0, 0, 0, 0.55); }
+:where(.${X.box}) { pointer-events: none; position: absolute; border: 1px solid rgba(255, 255, 255, 0.8); }
+:where(.${X.handle}) { pointer-events: none; position: absolute; width: 0.625rem; height: 0.625rem; transform: translate(-50%, -50%); border-radius: 0.125rem; border: 1px solid rgba(0, 0, 0, 0.4); background: #fff; }
+:where(.${X.readout}) { pointer-events: none; position: absolute; border-radius: 0.25rem; background: rgba(0, 0, 0, 0.75); padding: 0.125rem 0.375rem; font-size: 11px; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
+:where(.${X.photoGrid}) { pointer-events: none; position: absolute; overflow: hidden; }
+html.sl-larger-text .${X.hint}, html.sl-larger-text .${X.guidesHeader} { font-size: 12px !important; }
 `;
 }
 //#endregion
 //#region src/CropBox.tsx
-function ce(e, n, r) {
+var ye = "<path d=\"M9 18A9 9 0 0 1 18 9\"/><path d=\"M6 15L9 18L12 15\"/><path d=\"M15 6L18 9L15 12\"/>", be = {
+	id: "crop-rotate",
+	image: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="3">${ye}</g><g stroke="#111" stroke-width="1.4">${ye}</g></g></svg>`,
+	hotspotX: 12,
+	hotspotY: 12,
+	fallback: "grab"
+};
+function xe(e, n, r) {
 	let i = t.stores.useSettings.getState().uiScale || 1;
 	return {
 		x: (n - e.left) / i,
 		y: (r - e.top) / i
 	};
 }
-var J = (e) => t.cursors.resolve(e), Y = .04, le = 12, ue = (e, t, n) => Math.min(n, Math.max(t, e)), X = (e) => String(Math.round(e * 100) / 100), de = (e, t, n, r) => `M${X(e)} ${X(t)}H${X(n)}V${X(r)}H${X(e)}Z`, fe = 6, pe = (e, t, n) => {
+var Z = (e) => t.cursors.resolve(e), Q = .04, Se = 12, Ce = (e, t, n) => Math.min(n, Math.max(t, e)), $ = (e) => String(Math.round(e * 100) / 100), we = (e, t, n, r) => `M${$(e)} ${$(t)}H${$(n)}V${$(r)}H${$(e)}Z`, Te = 6, Ee = (e) => Math.round(e * 100) / 100, De = (e, t, n) => {
 	let r = Math.atan2(n, t) * 180 / Math.PI;
 	for (; r > 45;) r -= 90;
 	for (; r < -45;) r += 90;
-	return ue(e + r, -45, 45);
-}, me = (e) => G() === "right" ? e.button === 2 : e.button === 0 && (e.ctrlKey || e.metaKey), he = (e) => {
+	return Ee(Ce(e + r, -45, 45));
+}, Oe = (e) => J() === "right" ? e.button === 2 : e.button === 0 && (e.ctrlKey || e.metaKey), ke = (e, t, n, r, i, a) => {
+	let o = (Math.atan2(a - t, i - e) - Math.atan2(r - t, n - e)) * 180 / Math.PI;
+	return o > 180 && (o -= 360), o <= -180 && (o += 360), o;
+}, Ae = (e) => `${(-e).toFixed(1)}°`, je = 14, Me = (e, t, n) => {
+	let r = e > n.x + n.w / 2, i = t > n.y + n.h / 2;
+	return {
+		left: r ? e - je : e + je,
+		top: i ? t - je : t + je,
+		transform: r || i ? `translate(${r ? "-100%" : "0"}, ${i ? "-100%" : "0"})` : void 0
+	};
+}, Ne = (e) => {
 	switch (e) {
-		case "move": return J("crop-move");
+		case "move": return Z("crop-move");
 		case "nw":
-		case "se": return J("crop-resize-nwse");
+		case "se": return Z("crop-resize-nwse");
 		case "ne":
-		case "sw": return J("crop-resize-nesw");
+		case "sw": return Z("crop-resize-nesw");
 		case "n":
-		case "s": return J("crop-resize-ns");
+		case "s": return Z("crop-resize-ns");
 		case "e":
-		case "w": return J("crop-resize-ew");
-		default: return J("crosshair");
+		case "w": return Z("crop-resize-ew");
+		case "rotate": return Z(be.id);
+		default: return Z("crosshair");
 	}
 };
-function ge({ rect: t, crop: n, viewCrop: r, inv: a, forward: o, distort: s, straightenDeg: c, aspect: l, imageAspect: u, constrain: d, guide: f, guideFlip: p, onChange: m, onCommit: h, onLevel: g }) {
-	let _ = e.useRef(null), [v, y] = e.useState(null), [x, S] = e.useState(null), C = e.useId(), w = (e) => ce(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY), T = l > 0 ? l / u : 0, E = l > 0 ? 1 / (l * u) : 0, D = (e, n) => ({
+function Pe({ rect: t, crop: n, viewCrop: r, inv: a, forward: o, distort: s, straightenDeg: c, aspect: l, imageAspect: u, constrain: d, guide: f, guideFlip: p, grid: m, onChange: h, onCommit: g, onLevel: _, onTurn: v, onTurnEnd: y }) {
+	let x = e.useRef(null), [S, C] = e.useState(null), [w, T] = e.useState(null), [E, D] = e.useState(null), O = e.useId(), k = (e) => xe(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY), ee = l > 0 ? l / u : 0, A = l > 0 ? 1 / (l * u) : 0, j = (e, n) => ({
 		x: t.x + (e - r.x) / r.width * t.w,
 		y: t.y + (n - r.y) / r.height * t.h
-	}), O = D(n.x, n.y), k = D(n.x + n.width, n.y + n.height), A = O.x, j = O.y, M = k.x - O.x, N = k.y - O.y, P = [
+	}), M = j(n.x, n.y), N = j(n.x + n.width, n.y + n.height), P = M.x, F = M.y, I = N.x - M.x, L = N.y - M.y, R = [
 		i(o, 0, 0),
 		i(o, 1, 0),
 		i(o, 1, 1),
 		i(o, 0, 1)
-	].map((e) => D(e.x, e.y)), ee = Math.min(P[0].x, P[1].x, P[2].x, P[3].x), te = Math.max(P[0].x, P[1].x, P[2].x, P[3].x), ne = `${de(ee, Math.min(P[0].y, P[1].y, P[2].y, P[3].y), te, Math.max(P[0].y, P[1].y, P[2].y, P[3].y))}${de(A, j, A + M, j + N)}`, F = P.map((e) => `${X(e.x)},${X(e.y)}`).join(" "), I = `safelight-crop-dim-${C.replace(/:/g, "")}`, L = [
+	].map((e) => j(e.x, e.y)), z = Math.min(R[0].x, R[1].x, R[2].x, R[3].x), te = Math.max(R[0].x, R[1].x, R[2].x, R[3].x), B = `${we(z, Math.min(R[0].y, R[1].y, R[2].y, R[3].y), te, Math.max(R[0].y, R[1].y, R[2].y, R[3].y))}${we(P, F, P + I, F + L)}`, ne = R.map((e) => `${$(e.x)},${$(e.y)}`).join(" "), re = `safelight-crop-dim-${O.replace(/:/g, "")}`, ie = [
 		{
 			id: "nw",
-			x: A,
-			y: j
+			x: P,
+			y: F
 		},
 		{
 			id: "ne",
-			x: A + M,
-			y: j
+			x: P + I,
+			y: F
 		},
 		{
 			id: "se",
-			x: A + M,
-			y: j + N
+			x: P + I,
+			y: F + L
 		},
 		{
 			id: "sw",
-			x: A,
-			y: j + N
+			x: P,
+			y: F + L
 		}
-	], R = [
+	], V = [
 		{
 			id: "n",
-			x: A + M / 2,
-			y: j
+			x: P + I / 2,
+			y: F
 		},
 		{
 			id: "e",
-			x: A + M,
-			y: j + N / 2
+			x: P + I,
+			y: F + L / 2
 		},
 		{
 			id: "s",
-			x: A + M / 2,
-			y: j + N
+			x: P + I / 2,
+			y: F + L
 		},
 		{
 			id: "w",
-			x: A,
-			y: j + N / 2
+			x: P,
+			y: F + L / 2
 		}
-	], z = [...L, ...R], B = (e, t) => {
-		for (let n of z) if (Math.abs(e - n.x) <= le && Math.abs(t - n.y) <= le) return n.id;
-		return e >= A && e <= A + M && t >= j && t <= j + N ? "move" : null;
-	}, V = (e) => {
-		let t = me(e);
+	], H = [...ie, ...V], U = (e, t) => {
+		for (let n of H) if (Math.abs(e - n.x) <= Se && Math.abs(t - n.y) <= Se) return n.id;
+		return e >= P && e <= P + I && t >= F && t <= F + L ? "move" : "rotate";
+	}, ae = (e, t, n) => {
+		let r = Ee(Ce(e.startDeg - ke(e.cx, e.cy, e.sx, e.sy, t, n), -45, 45));
+		T({
+			x: t,
+			y: n,
+			deg: r
+		}), r !== e.deg && (e.deg = r, e.turned = !0, v(r, e.startCrop));
+	}, oe = (e) => {
+		T(null), e.turned && y();
+	}, W = (e) => {
+		let t = Oe(e);
 		if (e.button !== 0 && !t) return;
-		let { x: r, y: i } = w(e);
+		let { x: r, y: i } = k(e);
 		if (e.currentTarget.setPointerCapture(e.pointerId), t) {
-			_.current = {
+			x.current = {
 				mode: "level",
 				startCrop: n,
 				sx: r,
 				sy: i
-			}, S("level"), y({
+			}, D("level"), C({
 				x: r,
 				y: i,
 				dx: 0,
@@ -707,140 +787,165 @@ function ge({ rect: t, crop: n, viewCrop: r, inv: a, forward: o, distort: s, str
 			});
 			return;
 		}
-		let a = B(r, i);
-		a && (S(a), _.current = {
+		let a = U(r, i);
+		if (D(a), a === "rotate") {
+			let e = P + I / 2, t = F + L / 2;
+			x.current = {
+				mode: a,
+				startCrop: n,
+				sx: r,
+				sy: i,
+				cx: e,
+				cy: t,
+				startDeg: c,
+				deg: c,
+				turned: !1
+			}, T({
+				x: r,
+				y: i,
+				deg: c
+			});
+		} else x.current = {
 			mode: a,
 			startCrop: n,
 			sx: r,
 			sy: i
-		});
-	}, H = (e) => {
-		let n = _.current;
+		};
+	}, G = (e) => {
+		let n = x.current;
 		if (!n) {
-			let { x: t, y: n } = w(e);
-			S(G() === "ctrl" && (e.ctrlKey || e.metaKey) ? "level" : B(t, n));
+			let { x: t, y: n } = k(e);
+			D(J() === "ctrl" && (e.ctrlKey || e.metaKey) ? "level" : U(t, n));
 			return;
 		}
-		let { x: i, y: c } = w(e);
+		let { x: i, y: c } = k(e);
 		if (n.mode === "level") {
-			y((e) => e && {
+			C((e) => e && {
 				...e,
 				dx: i - n.sx,
 				dy: c - n.sy
 			});
 			return;
 		}
-		let l = (i - n.sx) / t.w * r.width, f = (c - n.sy) / t.h * r.height, p = _e(n.mode, n.startCrop, l, f, T, E);
-		p = d ? b(n.startCrop, p, n.mode, a, o, u, T > 0, s) : ye(p, r), m(p);
-	}, U = (e) => {
-		let t = _.current;
-		if (_.current = null, t) {
-			if (t.mode === "level") {
-				let { x: n, y: r } = w(e), i = n - t.sx, a = r - t.sy;
-				y(null), Math.abs(i) + Math.abs(a) > fe && g(pe(c, i, a));
-			} else h();
+		if (n.mode === "rotate") {
+			ae(n, i, c);
+			return;
 		}
-	}, W = () => {
-		let e = _.current;
-		_.current = null, e && (e.mode === "level" ? y(null) : h());
+		let l = (i - n.sx) / t.w * r.width, f = (c - n.sy) / t.h * r.height, p = Fe(n.mode, n.startCrop, l, f, ee, A);
+		p = d ? b(n.startCrop, p, n.mode, a, o, u, ee > 0, s) : Le(p, r), h(p);
+	}, se = (e) => {
+		let t = x.current;
+		if (x.current = null, t) {
+			if (t.mode === "level") {
+				let { x: n, y: r } = k(e), i = n - t.sx, a = r - t.sy;
+				C(null), Math.abs(i) + Math.abs(a) > Te && _(De(c, i, a));
+			} else if (t.mode === "rotate") {
+				let { x: n, y: r } = k(e);
+				ae(t, n, r), oe(t);
+			} else g();
+		}
+	}, K = () => {
+		let e = x.current;
+		x.current = null, e && (e.mode === "level" ? C(null) : e.mode === "rotate" ? oe(e) : g());
 	};
 	return /* @__PURE__ */ e.createElement("div", {
-		className: q.canvas,
-		style: { cursor: he(x) },
-		onPointerDown: V,
-		onPointerMove: H,
-		onPointerUp: U,
-		onPointerCancel: W,
-		onLostPointerCapture: W,
+		className: X.canvas,
+		style: { cursor: Ne(E) },
+		onPointerDown: W,
+		onPointerMove: G,
+		onPointerUp: se,
+		onPointerCancel: K,
+		onLostPointerCapture: K,
 		onContextMenu: (e) => {
-			G() === "right" && e.preventDefault();
+			J() === "right" && e.preventDefault();
 		},
 		onPointerLeave: () => {
-			_.current || S(null);
+			x.current || D(null);
 		}
 	}, /* @__PURE__ */ e.createElement("svg", {
 		"data-dim": "",
-		className: q.layer,
+		className: X.layer,
 		width: "100%",
 		height: "100%"
-	}, /* @__PURE__ */ e.createElement("clipPath", { id: I }, /* @__PURE__ */ e.createElement("polygon", { points: F })), /* @__PURE__ */ e.createElement("path", {
-		className: q.dim,
-		d: ne,
+	}, /* @__PURE__ */ e.createElement("clipPath", { id: re }, /* @__PURE__ */ e.createElement("polygon", { points: ne })), /* @__PURE__ */ e.createElement("path", {
+		className: X.dim,
+		d: B,
 		fillRule: "evenodd",
-		clipPath: `url(#${I})`
+		clipPath: `url(#${re})`
 	})), /* @__PURE__ */ e.createElement("div", {
-		className: q.box,
+		className: X.box,
 		style: {
-			left: A,
-			top: j,
-			width: M,
-			height: N
+			left: P,
+			top: F,
+			width: I,
+			height: L
 		}
-	}, /* @__PURE__ */ e.createElement(ve, {
-		guide: f,
-		flip: p,
-		w: M,
-		h: N
-	})), z.map((t) => /* @__PURE__ */ e.createElement("div", {
+	}, /* @__PURE__ */ e.createElement(Ie, {
+		guide: w ? "grid" : f,
+		flip: w ? 0 : p,
+		grid: m,
+		w: I,
+		h: L
+	})), H.map((t) => /* @__PURE__ */ e.createElement("div", {
 		key: t.id,
 		"data-handle": t.id,
-		className: q.handle,
+		className: X.handle,
 		style: {
 			left: t.x,
 			top: t.y
 		}
-	})), v && /* @__PURE__ */ e.createElement("svg", {
-		className: q.layer,
+	})), S && /* @__PURE__ */ e.createElement("svg", {
+		className: X.layer,
 		width: "100%",
 		height: "100%"
 	}, /* @__PURE__ */ e.createElement("line", {
-		x1: v.x,
-		y1: v.y,
-		x2: v.x + v.dx,
-		y2: v.y + v.dy,
+		x1: S.x,
+		y1: S.y,
+		x2: S.x + S.dx,
+		y2: S.y + S.dy,
 		stroke: "#4aa3ff",
 		strokeWidth: 1.5
-	})), v && Math.abs(v.dx) + Math.abs(v.dy) > fe && /* @__PURE__ */ e.createElement("div", {
-		className: q.readout,
-		style: {
-			left: v.x + v.dx + 14,
-			top: v.y + v.dy + 14
-		}
-	}, `${(-pe(c, v.dx, v.dy)).toFixed(1)}°`));
+	})), S && Math.abs(S.dx) + Math.abs(S.dy) > Te && /* @__PURE__ */ e.createElement("div", {
+		className: X.readout,
+		style: Me(S.x + S.dx, S.y + S.dy, t)
+	}, Ae(De(c, S.dx, S.dy))), w && /* @__PURE__ */ e.createElement("div", {
+		className: X.readout,
+		style: Me(w.x, w.y, t)
+	}, Ae(w.deg)));
 }
-function _e(e, t, n, r, i, a) {
+function Fe(e, t, n, r, i, a) {
 	let o = t.x, s = t.y, c = t.width, l = t.height;
 	if (e === "move") o += n, s += r;
 	else if (i > 0 && e.length === 2) {
-		let u = e.includes("e"), d = e.includes("s"), f = u ? t.x : t.x + t.width, p = d ? t.y : t.y + t.height, m = Math.max(Y, u ? t.width + n : t.width - n), h = Math.max(Y, d ? t.height + r : t.height - r), g = a > 0 ? a : i, _ = m / h, v = Math.abs(Math.log(_ / i)) <= Math.abs(Math.log(_ / g)) ? i : g;
-		c = Math.max(m, h * v), l = c / v, v >= 1 ? l < Y && (l = Y, c = l * v) : c < Y && (c = Y, l = c / v), o = u ? f : f - c, s = d ? p : p - l;
+		let u = e.includes("e"), d = e.includes("s"), f = u ? t.x : t.x + t.width, p = d ? t.y : t.y + t.height, m = Math.max(Q, u ? t.width + n : t.width - n), h = Math.max(Q, d ? t.height + r : t.height - r), g = a > 0 ? a : i, _ = m / h, v = Math.abs(Math.log(_ / i)) <= Math.abs(Math.log(_ / g)) ? i : g;
+		c = Math.max(m, h * v), l = c / v, v >= 1 ? l < Q && (l = Q, c = l * v) : c < Q && (c = Q, l = c / v), o = u ? f : f - c, s = d ? p : p - l;
 	} else if (i > 0) {
 		let i = t.width / t.height, a = t.x + t.width / 2, u = t.y + t.height / 2;
-		e === "e" || e === "w" ? (c = Math.max(Y, e === "e" ? t.width + n : t.width - n), l = c / i, l < Y && (l = Y, c = l * i), o = e === "e" ? t.x : t.x + t.width - c, s = u - l / 2) : (l = Math.max(Y, e === "s" ? t.height + r : t.height - r), c = l * i, c < Y && (c = Y, l = c / i), s = e === "s" ? t.y : t.y + t.height - l, o = a - c / 2);
+		e === "e" || e === "w" ? (c = Math.max(Q, e === "e" ? t.width + n : t.width - n), l = c / i, l < Q && (l = Q, c = l * i), o = e === "e" ? t.x : t.x + t.width - c, s = u - l / 2) : (l = Math.max(Q, e === "s" ? t.height + r : t.height - r), c = l * i, c < Q && (c = Q, l = c / i), s = e === "s" ? t.y : t.y + t.height - l, o = a - c / 2);
 	} else e.includes("e") && (c += n), e.includes("w") && (o += n, c -= n), e.includes("s") && (l += r), e.includes("n") && (s += r, l -= r);
-	return c < Y && (e.includes("w") && (o = t.x + t.width - Y), c = Y), l < Y && (e.includes("n") && (s = t.y + t.height - Y), l = Y), {
+	return c < Q && (e.includes("w") && (o = t.x + t.width - Q), c = Q), l < Q && (e.includes("n") && (s = t.y + t.height - Q), l = Q), {
 		x: o,
 		y: s,
 		width: c,
 		height: l
 	};
 }
-function ve({ guide: t, flip: n, w: r, h: i }) {
-	if (r <= 1 || i <= 1) return null;
-	let { lines: a, paths: o } = k(t, r, i), s = n === 1 ? `translate(${r} 0) scale(-1 1)` : n === 2 ? `translate(0 ${i}) scale(1 -1)` : n === 3 ? `translate(${r} ${i}) scale(-1 -1)` : void 0;
+function Ie({ guide: t, flip: n, grid: r, w: i, h: a }) {
+	if (i <= 1 || a <= 1) return null;
+	let { lines: o, paths: s } = ee(t, i, a, r.size), c = t === "grid" ? ge(r) : "rgba(255,255,255,0.4)", l = n === 1 ? `translate(${i} 0) scale(-1 1)` : n === 2 ? `translate(0 ${a}) scale(1 -1)` : n === 3 ? `translate(${i} ${a}) scale(-1 -1)` : void 0;
 	return /* @__PURE__ */ e.createElement("svg", {
-		className: q.layer,
-		width: r,
-		height: i
-	}, /* @__PURE__ */ e.createElement("g", { transform: s }, a.map((t, n) => /* @__PURE__ */ e.createElement("line", {
+		className: X.layer,
+		width: i,
+		height: a
+	}, /* @__PURE__ */ e.createElement("g", { transform: l }, o.map((t, n) => /* @__PURE__ */ e.createElement("line", {
 		key: n,
 		x1: t.x1,
 		y1: t.y1,
 		x2: t.x2,
 		y2: t.y2,
-		stroke: "rgba(255,255,255,0.4)",
+		stroke: c,
 		strokeWidth: 1
-	})), o.map((t, n) => /* @__PURE__ */ e.createElement("path", {
+	})), s.map((t, n) => /* @__PURE__ */ e.createElement("path", {
 		key: `p${n}`,
 		d: t,
 		fill: "none",
@@ -848,7 +953,7 @@ function ve({ guide: t, flip: n, w: r, h: i }) {
 		strokeWidth: 1
 	}))));
 }
-function ye(e, t) {
+function Le(e, t) {
 	let n = Math.min(e.width, t.width), r = Math.min(e.height, t.height);
 	return {
 		x: Math.min(Math.max(e.x, t.x), t.x + t.width - n),
@@ -859,26 +964,30 @@ function ye(e, t) {
 }
 //#endregion
 //#region src/CropCanvas.tsx
-var be = (e) => ({
+var Re = (e) => ({
 	...e,
-	crop: m(d(e.straighten, e.transform, W()))
+	crop: m(d(e.straighten, e.transform, U()))
 });
-function xe({ rect: n }) {
-	let r = t.stores.useDevelopStore, i = r((e) => e.params.crop), a = r((e) => e.params.straighten), o = r((e) => e.params.transform), s = r((e) => e.setParam), c = r((e) => e.commitEdit), l = r((e) => !!e.bypassedPanels["core.crop"] || !!e.bypassedPanels["core.transform"]), { region: f, imageAspect: p } = t.develop.useDevelopOverlay(), { guide: h, guideFlip: g } = I(), { constrain: _, aspect: v } = U(), y = u(a, o, p), b = d(a, o, p), x = f ?? m(b), C = e.useRef(null), w = e.useRef(null), T = (e) => {
-		C.current = e, w.current ??= requestAnimationFrame(() => {
-			w.current = null, C.current && s("crop", C.current);
+function ze({ rect: n }) {
+	let r = t.stores.useDevelopStore, i = r((e) => e.params.crop), a = r((e) => e.params.straighten), o = r((e) => e.params.transform), s = r((e) => e.setParam), c = r((e) => e.commitEdit), l = r((e) => !!e.bypassedPanels["core.crop"] || !!e.bypassedPanels["core.transform"]), { region: f, imageAspect: p } = t.develop.useDevelopOverlay(), { guide: h, guideFlip: g } = z(), { constrain: _, aspect: v } = H(), y = _e(), b = u(a, o, p), x = d(a, o, p), C = f ?? m(x), w = e.useRef(null), T = e.useRef(null), E = (e) => {
+		w.current = e, T.current ??= requestAnimationFrame(() => {
+			T.current = null;
+			let e = w.current;
+			w.current = null, e?.();
 		});
-	}, E = () => {
-		w.current != null && (cancelAnimationFrame(w.current), w.current = null), C.current &&= (s("crop", C.current), null);
+	}, D = () => {
+		T.current != null && (cancelAnimationFrame(T.current), T.current = null);
+		let e = w.current;
+		w.current = null, e?.();
 	};
 	return e.useEffect(() => () => {
-		w.current != null && cancelAnimationFrame(w.current), C.current = null;
-	}, []), l ? null : /* @__PURE__ */ e.createElement(ge, {
+		T.current != null && cancelAnimationFrame(T.current), w.current = null;
+	}, []), l ? null : /* @__PURE__ */ e.createElement(Pe, {
 		rect: n,
 		crop: i,
-		viewCrop: x,
-		inv: y,
-		forward: b,
+		viewCrop: C,
+		inv: b,
+		forward: x,
 		distort: null,
 		straightenDeg: a,
 		aspect: v === -1 ? p : v,
@@ -886,26 +995,33 @@ function xe({ rect: n }) {
 		constrain: _,
 		guide: h,
 		guideFlip: g,
-		onChange: T,
+		grid: y,
+		onChange: (e) => E(() => s("crop", e)),
 		onCommit: () => {
-			E(), c("Crop");
+			D(), c("Crop");
 		},
 		onLevel: (e) => {
 			s("straighten", e), _ && s("crop", S(i, u(e, o, p))), c("Straighten");
+		},
+		onTurn: (e, t) => E(() => {
+			s("straighten", e), _ && s("crop", S(t, u(e, o, p)));
+		}),
+		onTurnEnd: () => {
+			D(), c("Straighten");
 		}
 	});
 }
-var Se = {
-	overlay: xe,
+var Be = {
+	overlay: ze,
 	zoomable: !1,
-	viewParams: be,
+	viewParams: Re,
 	onEscape: () => P(!1)
-}, Ce = {
+}, Ve = {
 	x: 0,
 	y: 0,
 	width: 1,
 	height: 1
-}, we = [
+}, He = [
 	{
 		label: "Free",
 		ratio: 0
@@ -930,86 +1046,142 @@ var Se = {
 		label: "16:9",
 		ratio: 16 / 9
 	}
-], Z = (e) => `${q.choice}${e ? ` ${q.active}` : ""}`;
-function Te() {
-	let { Panel: n, Slider: r } = t.components, i = t.stores.useDevelopStore, { cropping: a, guide: o } = I(), { constrain: s, aspect: c } = U(), l = oe(), d = i((e) => e.params.straighten), f = i((e) => e.params.transform), m = i((e) => e.params.crop), h = i((e) => e.setParam), g = i((e) => e.commitEdit), _ = re(), v = e.useRef(null), [y, b] = e.useState("16"), [x, w] = e.useState("10"), T = (() => {
-		let e = parseFloat(y), t = parseFloat(x);
+], Ue = (e) => `${X.choice}${e ? ` ${X.active}` : ""}`;
+function We() {
+	let { Panel: n, Slider: r } = t.components, i = t.stores.useDevelopStore, { cropping: a, guide: o } = z(), { constrain: s, aspect: c } = H(), l = ue(), d = _e(), f = i((e) => e.params.straighten), m = i((e) => e.params.transform), h = i((e) => e.params.crop), g = i((e) => e.setParam), _ = i((e) => e.commitEdit), v = ae(), y = e.useRef(null), [b, x] = e.useState("16"), [w, E] = e.useState("10"), D = (() => {
+		let e = parseFloat(b), t = parseFloat(w);
 		return e > 0 && t > 0 ? e / t : 0;
-	})(), E = (e) => {
+	})(), O = (e) => {
 		if (P(!0), e === 0) {
-			H({ aspect: 0 });
+			V({ aspect: 0 });
 			return;
 		}
-		let t = e === -1 ? _ : e;
-		H({ aspect: e === -1 ? -1 : t });
-		let n = p(t, _);
-		s && (n = S(n, u(d, f, _))), h("crop", n), g("Crop");
-	}, D = (e) => e === 0 ? c === 0 : e === -1 ? c === -1 : c > 0 && Math.abs(c - e) < 1e-4;
+		let t = e === -1 ? v : e;
+		V({ aspect: e === -1 ? -1 : t });
+		let n = p(t, v);
+		s && (n = S(n, u(f, m, v))), g("crop", n), _("Crop");
+	}, k = (e) => e === 0 ? c === 0 : e === -1 ? c === -1 : c > 0 && Math.abs(c - e) < 1e-4, ee = () => {
+		V({ aspect: -1 }), g("crop", { ...Ve }), g("straighten", 0), _("Crop reset");
+	}, A = /* @__PURE__ */ e.createElement(r, {
+		label: "Grid size",
+		value: d.size,
+		min: T.min,
+		max: T.max,
+		step: 1,
+		defaultValue: T.initial,
+		onChange: he
+	});
 	return /* @__PURE__ */ e.createElement(n, {
 		title: "Crop & Straighten",
 		defaultOpen: !1
-	}, /* @__PURE__ */ e.createElement("div", { className: q.panel }, /* @__PURE__ */ e.createElement("button", {
+	}, /* @__PURE__ */ e.createElement("div", { className: X.panel }, /* @__PURE__ */ e.createElement("button", {
 		type: "button",
 		onClick: () => P(!a),
 		"aria-pressed": a,
-		className: `${q.toggle}${a ? ` ${q.on}` : ""}`
-	}, a ? "Done" : "Crop"), a && /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("div", { className: q.grid }, we.map((t) => /* @__PURE__ */ e.createElement("button", {
+		className: `${X.toggle}${a ? ` ${X.on}` : ""}`
+	}, a ? "Done" : "Crop"), a && /* @__PURE__ */ e.createElement(e.Fragment, null, /* @__PURE__ */ e.createElement("div", { className: X.grid }, He.map((t) => /* @__PURE__ */ e.createElement("button", {
 		key: t.label,
 		type: "button",
-		onClick: () => E(t.ratio),
-		className: Z(D(t.ratio))
-	}, t.label))), /* @__PURE__ */ e.createElement("div", { className: q.custom }, /* @__PURE__ */ e.createElement("input", {
+		onClick: () => O(t.ratio),
+		className: Ue(k(t.ratio))
+	}, t.label))), /* @__PURE__ */ e.createElement("div", { className: X.custom }, /* @__PURE__ */ e.createElement("input", {
 		type: "number",
 		min: 1,
 		"aria-label": "Custom ratio width",
-		value: y,
-		onChange: (e) => b(e.target.value),
-		className: q.number
-	}), /* @__PURE__ */ e.createElement("span", { className: q.colon }, ":"), /* @__PURE__ */ e.createElement("input", {
+		value: b,
+		onChange: (e) => x(e.target.value),
+		className: X.number
+	}), /* @__PURE__ */ e.createElement("span", { className: X.colon }, ":"), /* @__PURE__ */ e.createElement("input", {
 		type: "number",
 		min: 1,
 		"aria-label": "Custom ratio height",
-		value: x,
-		onChange: (e) => w(e.target.value),
-		className: q.number
+		value: w,
+		onChange: (e) => E(e.target.value),
+		className: X.number
 	}), /* @__PURE__ */ e.createElement("button", {
 		type: "button",
-		disabled: T <= 0,
-		onClick: () => E(T),
-		className: `${Z(T > 0 && D(T))} ${q.customButton}`
+		disabled: D <= 0,
+		onClick: () => O(D),
+		className: `${Ue(D > 0 && k(D))} ${X.customButton}`
 	}, "Custom"))), /* @__PURE__ */ e.createElement(r, {
 		label: "Straighten",
-		value: -d,
+		value: -f,
 		min: -45,
 		max: 45,
 		step: .1,
 		onChange: (e) => {
 			let t = -e;
-			h("straighten", t), s && (v.current ||= m, h("crop", S(v.current, u(t, f, _))));
+			g("straighten", t), s && (y.current ||= h, g("crop", S(y.current, u(t, m, v))));
 		},
 		onCommit: () => {
-			v.current = null, g("Straighten");
+			y.current = null, _("Straighten");
 		}
-	}), a && /* @__PURE__ */ e.createElement("div", { className: q.guides }, /* @__PURE__ */ e.createElement("div", { className: q.guidesHeader }, /* @__PURE__ */ e.createElement("span", null, "Overlay"), /* @__PURE__ */ e.createElement("span", null, "O cycles · Shift+O flips")), /* @__PURE__ */ e.createElement("div", { className: q.grid }, C.map((t) => /* @__PURE__ */ e.createElement("button", {
+	}), a && /* @__PURE__ */ e.createElement("div", { className: X.guides }, /* @__PURE__ */ e.createElement("div", { className: X.guidesHeader }, /* @__PURE__ */ e.createElement("span", null, "Overlay"), /* @__PURE__ */ e.createElement("span", null, "O cycles · Shift+O flips")), /* @__PURE__ */ e.createElement("div", { className: X.grid }, C.map((t) => /* @__PURE__ */ e.createElement("button", {
 		key: t.id,
 		type: "button",
-		onClick: () => ee(t.id),
-		className: Z(o === t.id)
-	}, t.label)))), /* @__PURE__ */ e.createElement("label", { className: q.check }, /* @__PURE__ */ e.createElement("input", {
+		onClick: () => F(t.id),
+		className: Ue(o === t.id)
+	}, t.label))), o === "grid" && A), /* @__PURE__ */ e.createElement("label", { className: X.check }, /* @__PURE__ */ e.createElement("input", {
 		type: "checkbox",
 		checked: s,
-		onChange: (e) => H({ constrain: e.target.checked })
-	}), "Constrain to image"), a && /* @__PURE__ */ e.createElement("p", { className: q.hint }, "Drag the edges/corners to crop · ", l === "right" ? "Right-drag" : "Ctrl-drag", " across a line to level."), /* @__PURE__ */ e.createElement("button", {
+		onChange: (e) => V({ constrain: e.target.checked })
+	}), "Constrain to image"), !a && /* @__PURE__ */ e.createElement("label", {
+		className: X.check,
+		title: "A grid over the photo, for checking horizons, verticals and lens distortion. Its shortcut is under Preferences ▸ Shortcuts."
+	}, /* @__PURE__ */ e.createElement("input", {
+		type: "checkbox",
+		checked: d.show,
+		onChange: (e) => pe(e.target.checked)
+	}), "Show grid"), !a && d.show && A, a && /* @__PURE__ */ e.createElement("p", { className: X.hint }, "Drag the edges/corners to crop · ", l === "right" ? "Right-drag" : "Ctrl-drag", " across a line to level."), /* @__PURE__ */ e.createElement("button", {
 		type: "button",
-		onClick: () => {
-			H({ aspect: -1 }), h("crop", { ...Ce }), h("straighten", 0), g("Crop reset");
-		},
-		className: q.reset
+		onClick: ee,
+		className: X.reset
 	}, "Reset crop")));
 }
 //#endregion
+//#region src/GridOverlay.tsx
+var Ge = "safelight.crop.grid";
+function Ke(e, t, n, r) {
+	let i = [];
+	for (let a = 1; a < n; a++) {
+		let o = e + a / n * t;
+		o > 0 && o < r && i.push(o);
+	}
+	return i;
+}
+function qe() {
+	let { rect: n, imageRect: r } = t.develop.useDevelopOverlay(), { cropping: i } = z(), a = _e();
+	if (!a.show || i || !n || !r) return null;
+	let o = ge(a), s = Ke(r.x - n.x, r.w, a.size, n.w), c = Ke(r.y - n.y, r.h, a.size, n.h);
+	return /* @__PURE__ */ e.createElement("svg", {
+		className: X.photoGrid,
+		style: {
+			left: n.x,
+			top: n.y,
+			width: n.w,
+			height: n.h
+		}
+	}, s.map((t) => /* @__PURE__ */ e.createElement("line", {
+		key: `x${t}`,
+		x1: t,
+		y1: 0,
+		x2: t,
+		y2: n.h,
+		stroke: o,
+		strokeWidth: 1
+	})), c.map((t) => /* @__PURE__ */ e.createElement("line", {
+		key: `y${t}`,
+		x1: 0,
+		y1: t,
+		x2: n.w,
+		y2: t,
+		stroke: o,
+		strokeWidth: 1
+	})));
+}
+//#endregion
 //#region src/stages.ts
-var Ee = "safelight.crop.geometry", De = "// The view's point (output, crop coordinates) to source UV: through the crop\n// to the transformed image, then the geometry transform's inverse (straighten,\n// perspective, stretch, scale, offset), which is independent of the crop. vUv\n// already has V flipped, so both are in top-left-origin image space.\nvec2 cropTransformUV(vec2 o) {\n  vec2 p = uCrop.xy + o * uCrop.zw;\n  vec3 q = uInvTransform * vec3(p, 1.0);\n  return q.xy / q.z;\n}", Q = (e, t) => [
+var Je = "safelight.crop.geometry", Ye = "// The view's point (output, crop coordinates) to source UV: through the crop\n// to the transformed image, then the geometry transform's inverse (straighten,\n// perspective, stretch, scale, offset), which is independent of the crop. vUv\n// already has V flipped, so both are in top-left-origin image space.\nvec2 cropTransformUV(vec2 o) {\n  vec2 p = uCrop.xy + o * uCrop.zw;\n  vec3 q = uInvTransform * vec3(p, 1.0);\n  return q.xy / q.z;\n}", Xe = (e, t) => [
 	e,
 	0,
 	0,
@@ -1020,7 +1192,7 @@ var Ee = "safelight.crop.geometry", De = "// The view's point (output, crop coor
 	0,
 	1
 ];
-function Oe(e, t) {
+function Ze(e, t) {
 	let n = e * Math.PI / 180, i = [
 		Math.cos(n),
 		-Math.sin(n),
@@ -1031,7 +1203,7 @@ function Oe(e, t) {
 		0,
 		0,
 		1
-	], a = t.perspectiveH / 100 * .6, o = t.perspectiveV / 100 * .6, s = 1.5 ** (t.aspect / 100), c = 2 ** ((t.scale - 100) / 200), l = r(i, Q(t.flipH ? -1 : 1, t.flipV ? -1 : 1));
+	], a = t.perspectiveH / 100 * .6, o = t.perspectiveV / 100 * .6, s = 1.5 ** (t.aspect / 100), c = 2 ** ((t.scale - 100) / 200), l = r(i, Xe(t.flipH ? -1 : 1, t.flipV ? -1 : 1));
 	l = r(l, [
 		1,
 		0,
@@ -1042,7 +1214,7 @@ function Oe(e, t) {
 		-a,
 		-o,
 		1
-	]), l = r(l, Q(1 / s, s)), l = r(l, Q(1 / c, 1 / c));
+	]), l = r(l, Xe(1 / s, s)), l = r(l, Xe(1 / c, 1 / c));
 	let u = [
 		1,
 		0,
@@ -1059,14 +1231,14 @@ function Oe(e, t) {
 		normalized: u
 	};
 }
-function ke(e) {
+function Qe(e) {
 	return {
-		id: Ee,
+		id: Je,
 		name: "Crop & Straighten",
 		phase: "geometry",
 		anchor: "geometry",
 		glsl: "",
-		helpers: De,
+		helpers: Ye,
 		uniforms: [{
 			key: "uCrop",
 			glslType: "vec4",
@@ -1103,21 +1275,25 @@ function ke(e) {
 				e.crop.width,
 				e.crop.height
 			],
-			uInvTransform: Oe(e.straighten, e.transform)
+			uInvTransform: Ze(e.straighten, e.transform)
 		})
 	};
 }
 //#endregion
 //#region src/index.tsx
-var Ae = "core.crop", je = "safelight.crop.styles", Me = 3, $ = null;
-function Ne(e) {
-	n(e), L(), B(), ae(), e.registerStylesheet({
-		id: je,
-		css: se(e.ui.tokens)
-	}), e.registerProcessingStage(ke(3)), e.registerPanel({
-		id: Ae,
+var $e = "core.crop", et = "safelight.crop.styles", tt = 3, nt = null;
+function rt(e) {
+	n(e), te(), re(), le(), e.registerStylesheet({
+		id: et,
+		css: ve(e.ui.tokens)
+	}), e.registerCursor(be), e.registerSlot({
+		id: Ge,
+		slot: "develop-canvas-overlay",
+		component: qe
+	}), e.registerProcessingStage(Qe(3)), e.registerPanel({
+		id: $e,
 		title: "Crop & Straighten",
-		component: Te,
+		component: We,
 		defaultDock: {
 			module: "develop",
 			direction: "right",
@@ -1126,9 +1302,9 @@ function Ne(e) {
 			height: 150
 		},
 		onReset: () => {
-			H({ aspect: 0 }), e.stores.useDevelopStore.getState().resetParams(["crop", "straighten"], "Reset Crop & Straighten");
+			V({ aspect: 0 }), e.stores.useDevelopStore.getState().resetParams(["crop", "straighten"], "Reset Crop & Straighten");
 		}
-	}), $?.(), $ = F(() => e.develop.setCanvasTool(N().cropping ? Se : null));
+	}), nt?.(), nt = R(() => e.develop.setCanvasTool(N().cropping ? Be : null));
 	let t = (e) => () => {
 		N().cropping && e();
 	};
@@ -1137,19 +1313,25 @@ function Ne(e) {
 		label: "Cycle crop guide",
 		category: "Develop",
 		defaultCombo: "O",
-		handler: t(te)
+		handler: t(I)
 	}), e.registerKeybinding({
 		id: "crop.flipGuide",
 		label: "Flip crop guide",
 		category: "Develop",
 		defaultCombo: "Shift+O",
-		handler: t(ne)
+		handler: t(L)
+	}), e.registerKeybinding({
+		id: "crop.toggleGrid",
+		label: "Show grid",
+		category: "Develop",
+		defaultCombo: "Ctrl+Alt+O",
+		handler: me
 	});
 }
-function Pe() {
-	$?.(), $ = null, L();
+function it() {
+	nt?.(), nt = null, te();
 }
 //#endregion
-export { Me as LINE, Ae as PANEL_ID, je as STYLESHEET_ID, Ne as activate, Pe as deactivate };
+export { tt as LINE, $e as PANEL_ID, et as STYLESHEET_ID, rt as activate, it as deactivate };
 
 //# sourceMappingURL=index.js.map

@@ -4,16 +4,28 @@
 // be preserved in derived versions.
 
 // Registers the Develop "Crop & Straighten" panel, crop mode on the canvas,
-// its guide shortcuts, and the photo's geometry stage. It was core's built-in
-// `core.crop` until Safelight 3.2.0 and keeps that panel id, so saved layouts
-// keep it where it was.
+// its shortcuts, Show grid over the photo, and the photo's geometry stage. It
+// was core's built-in `core.crop` until Safelight 3.2.0 and keeps that panel
+// id, so saved layouts keep it where it was.
 
+import { ROTATE_CURSOR } from "./CropBox";
 import { CROP_TOOL } from "./CropCanvas";
 import { CropPanel } from "./CropPanel";
+import { GRID_SLOT, GridOverlay } from "./GridOverlay";
 import { initRuntime } from "./rt";
 import type { Line, SafelightAPI } from "./safelight";
 import { geometryStage } from "./stages";
-import { cropMode, cycleGuide, cycleGuideFlip, registerLevelSetting, registerOptions, resetCropMode, setCropOptions, subscribeCropMode } from "./state";
+import {
+  cropMode,
+  cycleGuide,
+  cycleGuideFlip,
+  registerOptions,
+  registerPreferences,
+  resetCropMode,
+  setCropOptions,
+  subscribeCropMode,
+  toggleGrid,
+} from "./state";
 import { cropCss } from "./styles";
 
 export const PANEL_ID = "core.crop";
@@ -28,8 +40,10 @@ export function activate(host: SafelightAPI): void {
   initRuntime(host);
   resetCropMode();
   registerOptions();
-  registerLevelSetting();
+  registerPreferences();
   host.registerStylesheet({ id: STYLESHEET_ID, css: cropCss(host.ui.tokens) });
+  host.registerCursor(ROTATE_CURSOR);
+  host.registerSlot({ id: GRID_SLOT, slot: "develop-canvas-overlay", component: GridOverlay });
   host.registerProcessingStage(geometryStage(LINE));
   host.registerPanel({
     id: PANEL_ID,
@@ -50,6 +64,7 @@ export function activate(host: SafelightAPI): void {
   };
   host.registerKeybinding({ id: "crop.cycleGuide", label: "Cycle crop guide", category: "Develop", defaultCombo: "O", handler: whileCropping(cycleGuide) });
   host.registerKeybinding({ id: "crop.flipGuide", label: "Flip crop guide", category: "Develop", defaultCombo: "Shift+O", handler: whileCropping(cycleGuideFlip) });
+  host.registerKeybinding({ id: "crop.toggleGrid", label: "Show grid", category: "Develop", defaultCombo: "Ctrl+Alt+O", handler: toggleGrid });
 }
 
 export function deactivate(): void {

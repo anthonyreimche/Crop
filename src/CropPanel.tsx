@@ -4,16 +4,27 @@
 // be preserved in derived versions.
 
 // The Develop "Crop & Straighten" panel: Crop / Done, aspect presets and a
-// custom ratio, Straighten, the composition guides, Constrain to image and
-// Reset. Until Safelight 3.2.0 it was core's built-in.
+// custom ratio, Straighten, the composition guides, Constrain to image, Show
+// grid and Reset. Until Safelight 3.2.0 it was core's built-in.
 
 import { React, api } from "./rt";
 import type { CropRect } from "./safelight";
 import { computeCropForAspect, fitCropToImage } from "./crop-maths";
 import { buildInverseTransform } from "./transform";
-import { CROP_GUIDES } from "./crop-guides";
+import { CROP_GUIDES, GRID_SIZES } from "./crop-guides";
 import { DEFAULT_CROP } from "./defaults";
-import { setCropOptions, setCropping, setGuide, useCropMode, useCropOptions, useImageAspect, useLevelWith } from "./state";
+import {
+  setCropOptions,
+  setCropping,
+  setGridSize,
+  setGuide,
+  setShowGrid,
+  useCropMode,
+  useCropOptions,
+  useGridOptions,
+  useImageAspect,
+  useLevelWith,
+} from "./state";
 import { cls } from "./styles";
 
 // ratio is width:height in pixels. 0 = Free (no lock); -1 = Original (locks to
@@ -36,6 +47,7 @@ export function CropPanel() {
   const { cropping, guide } = useCropMode();
   const { constrain, aspect: cropAspect } = useCropOptions();
   const levelWith = useLevelWith();
+  const grid = useGridOptions();
   const straighten = useDevelopStore((s) => s.params.straighten);
   const transform = useDevelopStore((s) => s.params.transform);
   const crop = useDevelopStore((s) => s.params.crop);
@@ -89,6 +101,20 @@ export function CropPanel() {
     setParam("straighten", 0);
     void commitEdit("Crop reset");
   };
+
+  // Not an edit: the size lives in the extension's settings, so there is
+  // nothing to commit.
+  const gridSize = (
+    <Slider
+      label="Grid size"
+      value={grid.size}
+      min={GRID_SIZES.min}
+      max={GRID_SIZES.max}
+      step={1}
+      defaultValue={GRID_SIZES.initial}
+      onChange={setGridSize}
+    />
+  );
 
   return (
     <Panel title="Crop & Straighten" defaultOpen={false}>
@@ -178,6 +204,7 @@ export function CropPanel() {
                 </button>
               ))}
             </div>
+            {guide === "grid" && gridSize}
           </div>
         )}
 
@@ -185,6 +212,17 @@ export function CropPanel() {
           <input type="checkbox" checked={constrain} onChange={(e) => setCropOptions({ constrain: e.target.checked })} />
           Constrain to image
         </label>
+
+        {!cropping && (
+          <label
+            className={cls.check}
+            title="A grid over the photo, for checking horizons, verticals and lens distortion. Its shortcut is under Preferences ▸ Shortcuts."
+          >
+            <input type="checkbox" checked={grid.show} onChange={(e) => setShowGrid(e.target.checked)} />
+            Show grid
+          </label>
+        )}
+        {!cropping && grid.show && gridSize}
 
         {cropping && (
           <p className={cls.hint}>

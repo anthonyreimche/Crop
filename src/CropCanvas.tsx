@@ -7,15 +7,16 @@
 // cropping. The live view draws the whole transformed image past the crop
 // (viewParams), and the crop box is drawn over the region the canvas shows,
 // which until the renderer draws the view asked for (crop mode opening, a
-// straighten) is still the one before. Crop writes are throttled to one per
-// frame, so a drag doesn't re-render the panels on every pointer event.
+// straighten) is still the one before. A drag's writes, a crop or a turn of
+// the photo, are throttled to one per frame, so it doesn't re-render the
+// panels on every pointer event.
 
 import { React, api } from "./rt";
-import type { CanvasTool, CropRect, DevelopParams, OverlayRect } from "./safelight";
+import type { CanvasTool, DevelopParams, OverlayRect } from "./safelight";
 import { fitCropToImage, transformedViewCrop } from "./crop-maths";
 import { buildForwardTransform, buildInverseTransform } from "./transform";
 import { CropBox } from "./CropBox";
-import { cycleGuide, imageAspect, setCropping, useCropMode, useCropOptions } from "./state";
+import { cycleGuide, imageAspect, setCropping, useCropMode, useCropOptions, useGridOptions } from "./state";
 
 /** The params the live view draws in crop mode: the crop widened to enclose
  *  the whole transformed image. */
@@ -38,19 +39,23 @@ export function CropCanvas({ rect }: { rect: OverlayRect }) {
   const { region, imageAspect: aspect } = api.develop.useDevelopOverlay();
   const { guide, guideFlip } = useCropMode();
   const { constrain, aspect: lock } = useCropOptions();
+  const grid = useGridOptions();
 
   const inv = buildInverseTransform(straighten, transform, aspect);
   const forward = buildForwardTransform(straighten, transform, aspect);
   const viewCrop = region ?? transformedViewCrop(forward);
 
-  const pending = React.useRef<CropRect | null>(null);
+  // The drag's latest write, waiting for the next frame.
+  const pending = React.useRef<(() => void) | null>(null);
   const raf = React.useRef<number | null>(null);
-  const push = (next: CropRect) => {
-    pending.current = next;
+  const schedule = (write: () => void) => {
+    pending.current = write;
     if (raf.current == null) {
       raf.current = requestAnimationFrame(() => {
         raf.current = null;
-        if (pending.current) setParam("crop", pending.current);
+        const run = pending.current;
+        pending.current = null;
+        run?.();
       });
     }
   };
@@ -59,10 +64,9 @@ export function CropCanvas({ rect }: { rect: OverlayRect }) {
       cancelAnimationFrame(raf.current);
       raf.current = null;
     }
-    if (pending.current) {
-      setParam("crop", pending.current);
-      pending.current = null;
-    }
+    const run = pending.current;
+    pending.current = null;
+    run?.();
   };
   // Drop a queued write on unmount (photo or module switch mid-drag) so it
   // can't land this photo's crop in the next photo's params.
@@ -89,7 +93,8 @@ export function CropCanvas({ rect }: { rect: OverlayRect }) {
       constrain={constrain}
       guide={guide}
       guideFlip={guideFlip}
-      onChange={push}
+      grid={grid}
+      onChange={(next) => schedule(() => setParam("crop", next))}
       onCommit={() => {
         flush();
         void commitEdit("Crop");
@@ -97,6 +102,18 @@ export function CropCanvas({ rect }: { rect: OverlayRect }) {
       onLevel={(deg) => {
         setParam("straighten", deg);
         if (constrain) setParam("crop", fitCropToImage(crop, buildInverseTransform(deg, transform, aspect)));
+        void commitEdit("Straighten");
+      }}
+      // As the Straighten slider does: refit from the crop the drag began
+      // with, so turning back un-crops.
+      onTurn={(deg, from) =>
+        schedule(() => {
+          setParam("straighten", deg);
+          if (constrain) setParam("crop", fitCropToImage(from, buildInverseTransform(deg, transform, aspect)));
+        })
+      }
+      onTurnEnd={() => {
+        flush();
         void commitEdit("Straighten");
       }}
     />

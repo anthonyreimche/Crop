@@ -1,11 +1,11 @@
 // What activate() registers, the geometry stage every line carries, crop mode
 // (the canvas tool and its view), the panel's aspects and straighten, and the
 // crop box: drags commit once, a drag the system ends keeps what it reached,
-// and the guides draw in the box.
+// a drag outside it turns the photo, and the guides draw in the box.
 
 import { createHash } from "node:crypto";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LINE, PANEL_ID, STYLESHEET_ID, activate, deactivate } from "../src/index";
 import { React, initRuntime } from "../src/rt";
 import type { CropRect, Line, ProcessingStageContribution } from "../src/safelight";
@@ -16,7 +16,7 @@ import { CROP_GUIDES, guideShapes } from "../src/crop-guides";
 import { computeCropForAspect, fitCropToImage, transformedViewCrop } from "../src/crop-maths";
 import { buildForwardTransform, buildInverseTransform, mat3Apply, mat3Mul, type Mat3 } from "../src/transform";
 import { DEFAULT_CROP, DEFAULT_TRANSFORM } from "../src/defaults";
-import { LEVEL_WITH, OPTIONS, cropMode, cropOptions, registerOptions, resetCropMode, setCropOptions } from "../src/state";
+import { GRID_SIZE, LEVEL_WITH, OPTIONS, cropMode, cropOptions, registerOptions, resetCropMode, setCropOptions } from "../src/state";
 import manifest from "../safelight.json";
 import { fakeApi, type Rig } from "./support/fake-api";
 
@@ -114,24 +114,18 @@ describe("activate", () => {
 
   it("registers the level-line gesture as a setting, Ctrl-drag by default", () => {
     activate(rig.api);
-    expect(rig.settingsSections).toEqual([
-      {
-        title: "Crop & Straighten",
-        fields: [
-          {
-            key: LEVEL_WITH,
-            label: "Level line",
-            hint: expect.any(String),
-            type: "select",
-            default: "ctrl",
-            options: [
-              { value: "ctrl", label: "Ctrl-drag" },
-              { value: "right", label: "Right-drag" },
-            ],
-          },
-        ],
-      },
-    ]);
+    expect(rig.settingsSections.map((s) => s.title)).toEqual(["Crop & Straighten"]);
+    expect(rig.settingsSections[0].fields[0]).toEqual({
+      key: LEVEL_WITH,
+      label: "Level line",
+      hint: expect.any(String),
+      type: "select",
+      default: "ctrl",
+      options: [
+        { value: "ctrl", label: "Ctrl-drag" },
+        { value: "right", label: "Right-drag" },
+      ],
+    });
   });
 
   it("cycles and flips the guide with O and Shift+O, while cropping only", () => {
@@ -139,6 +133,7 @@ describe("activate", () => {
     expect(rig.keys.map((k) => [k.id, k.defaultCombo])).toEqual([
       ["crop.cycleGuide", "O"],
       ["crop.flipGuide", "Shift+O"],
+      ["crop.toggleGrid", "Ctrl+Alt+O"],
     ]);
     rig.keys[0].handler();
     expect(cropMode().guide).toBe("thirds");
@@ -360,11 +355,10 @@ describe("the crop box", () => {
 });
 
 // The level line over the same 600×400 frame: a line 200 px across and 10 px
-// down is 2.86° off level, so the photo turns by that, shown as the panel
-// shows it (negated).
+// down is 2.8624° off level, so the photo turns by that to a hundredth, shown
+// as the panel shows it (negated).
 describe("the level line", () => {
   const RECT = { x: 0, y: 0, w: 600, h: 400 };
-  const LEVEL = 2.8624;
 
   const mount = () => {
     rig.overlay.setState({ region: { x: 0, y: 0, width: 1, height: 1 }, imageAspect: 1.5 });
@@ -384,8 +378,7 @@ describe("the level line", () => {
     draw(overlay, { button: 0, ctrlKey: true });
     expect(screen.getByText("-2.9°")).toBeTruthy();
     fireEvent.pointerUp(overlay, { pointerId: 1, clientX: 300, clientY: 210 });
-    expect(straightened()).toHaveLength(1);
-    expect(straightened()[0]).toBeCloseTo(LEVEL, 3);
+    expect(straightened()).toEqual([2.86]);
     expect(rig.calls).toContainEqual({ commitEdit: "Straighten" });
     expect(screen.queryByText("-2.9°")).toBeNull();
   });
@@ -411,7 +404,7 @@ describe("the level line", () => {
     draw(overlay, { button: 2 });
     expect(screen.getByText("-2.9°")).toBeTruthy();
     fireEvent.pointerUp(overlay, { pointerId: 1, clientX: 300, clientY: 210 });
-    expect(straightened()[0]).toBeCloseTo(LEVEL, 3);
+    expect(straightened()).toEqual([2.86]);
   });
 
   it("lets Ctrl-drag crop as a plain drag under the right-drag setting", () => {
@@ -446,6 +439,182 @@ describe("the guide in the box", () => {
     const want = guideShapes(id, parseFloat(box.style.width), parseFloat(box.style.height));
     expect(box.querySelectorAll("svg line")).toHaveLength(want.lines.length);
     expect(box.querySelectorAll("svg path")).toHaveLength(want.paths.length);
+  });
+});
+
+// A drag outside the crop box turns the photo about the box's centre. The
+// 600×400 frame shows the whole 3:2 image and the crop is its middle 80%: a
+// box from (60, 40) to (540, 360), centred on (300, 200). Drags start at
+// (580, 200), 40 px right of the box's right edge.
+describe("turning the photo outside the box", () => {
+  const RECT = { x: 0, y: 0, w: 600, h: 400 };
+  const CROP = { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+  const START = { clientX: 580, clientY: 200 };
+  /** The sweep about the centre to (x, y), clockwise on screen, in degrees. */
+  const sweep = (x: number, y: number) => (Math.atan2(y - 200, x - 300) * 180) / Math.PI;
+  /** An angle as the drag stores it, to a hundredth of a degree. */
+  const hundredth = (deg: number) => Math.round(deg * 100) / 100;
+
+  const mount = () => {
+    rig.overlay.setState({ region: { x: 0, y: 0, width: 1, height: 1 }, imageAspect: 1.5 });
+    rig.develop.setState({ params: { ...rig.develop.getState().params, crop: CROP } });
+    const view = render(<CropCanvas rect={RECT} />);
+    return view.container.firstElementChild as HTMLElement;
+  };
+
+  const straighten = () => rig.develop.getState().params.straighten;
+  const commits = () => rig.calls.filter((c) => "commitEdit" in c);
+  const guideLines = (overlay: HTMLElement) => overlay.querySelectorAll(".safelight-crop-box svg line").length;
+
+  const press = (overlay: HTMLElement, extra: { ctrlKey?: boolean } = {}) =>
+    fireEvent.pointerDown(overlay, { pointerId: 1, button: 0, ...START, ...extra });
+  const moveTo = (overlay: HTMLElement, clientX: number, clientY: number) =>
+    fireEvent.pointerMove(overlay, { pointerId: 1, buttons: 1, clientX, clientY });
+  const release = (overlay: HTMLElement, clientX: number, clientY: number) =>
+    fireEvent.pointerUp(overlay, { pointerId: 1, clientX, clientY });
+
+  it("shows the rotate cursor outside the box, and the others where they were", () => {
+    activate(rig.api);
+    const overlay = mount();
+    expect(rig.cursors.map((c) => c.id)).toEqual(["crop-rotate"]);
+    fireEvent.pointerMove(overlay, START);
+    expect(overlay.style.cursor).toBe(rig.api.cursors.resolve("crop-rotate"));
+    fireEvent.pointerMove(overlay, { clientX: 300, clientY: 200 });
+    expect(overlay.style.cursor).toBe("move");
+    fireEvent.pointerMove(overlay, { clientX: 545, clientY: 365 });
+    expect(overlay.style.cursor).toBe("nwse-resize");
+  });
+
+  it("turns the photo the way the pointer sweeps, showing the angle as the slider reads it", () => {
+    const overlay = mount();
+    press(overlay);
+    moveTo(overlay, 580, 250);
+    expect(screen.getByText(`${sweep(580, 250).toFixed(1)}°`)).toBeTruthy();
+    release(overlay, 580, 250);
+    expect(straighten()).toBe(hundredth(-sweep(580, 250)));
+    // Clockwise on screen: the middle of the photo's right edge goes down.
+    expect(mat3Apply(buildForwardTransform(straighten(), DEFAULT_TRANSFORM, 1.5), 1, 0.5).y).toBeGreaterThan(0.5);
+    expect(screen.queryByText(/°$/)).toBeNull();
+  });
+
+  it("adds to the straighten already there", () => {
+    rig.develop.setState({ params: { ...rig.develop.getState().params, straighten: 5 } });
+    const overlay = mount();
+    press(overlay);
+    moveTo(overlay, 580, 250);
+    expect(screen.getByText(`${(sweep(580, 250) - 5).toFixed(1)}°`)).toBeTruthy();
+    release(overlay, 580, 250);
+    expect(straighten()).toBe(hundredth(5 - sweep(580, 250)));
+  });
+
+  // The readout sits on the side of the pointer facing the photo's centre, so
+  // it stays on the canvas however near its edge the drag runs.
+  it.each([
+    ["right of centre: to the pointer's left", 580, 200, { left: "566px", top: "187px", transform: "translate(-100%, -100%)" }],
+    ["left of and below centre: above the pointer", 20, 390, { left: "34px", top: "377px", transform: "translate(0, -100%)" }],
+    ["left of and above centre: below and right, as before", 20, 10, { left: "34px", top: "25px", transform: "" }],
+  ])("keeps the angle on the canvas %s", (_name, x, y, want) => {
+    const overlay = mount();
+    fireEvent.pointerDown(overlay, { pointerId: 1, button: 0, clientX: x, clientY: y });
+    moveTo(overlay, x, y + 1);
+    const { left, top, transform } = screen.getByText(/°$/).style;
+    expect({ left, top, transform }).toEqual(want);
+  });
+
+  it("stops at the slider's 45° either way", () => {
+    const overlay = mount();
+    press(overlay);
+    moveTo(overlay, 300, 500);
+    release(overlay, 300, 500);
+    expect(straighten()).toBe(-45);
+  });
+
+  it("is one Straighten step, however long the drag", () => {
+    const overlay = mount();
+    press(overlay);
+    moveTo(overlay, 580, 230);
+    moveTo(overlay, 580, 280);
+    moveTo(overlay, 580, 250);
+    release(overlay, 580, 250);
+    fireEvent.lostPointerCapture(overlay, { pointerId: 1 });
+    expect(commits()).toEqual([{ commitEdit: "Straighten" }]);
+  });
+
+  it("leaves the photo be for a click outside the box", () => {
+    const overlay = mount();
+    press(overlay);
+    release(overlay, START.clientX, START.clientY);
+    expect(straighten()).toBe(0);
+    expect(rig.calls).toEqual([]);
+  });
+
+  it.each([
+    ["the pointer is cancelled", (el: HTMLElement) => fireEvent.pointerCancel(el, { pointerId: 1 })],
+    ["the capture is lost", (el: HTMLElement) => fireEvent.lostPointerCapture(el, { pointerId: 1 })],
+  ])("keeps the angle it reached when %s", (_label, end) => {
+    const overlay = mount();
+    press(overlay);
+    moveTo(overlay, 580, 250);
+    end(overlay);
+    expect(straighten()).toBe(hundredth(-sweep(580, 250)));
+    expect(commits()).toEqual([{ commitEdit: "Straighten" }]);
+    fireEvent.pointerMove(overlay, { pointerId: 1, buttons: 0, clientX: 580, clientY: 350 });
+    expect(straighten()).toBe(hundredth(-sweep(580, 250)));
+  });
+
+  it("draws the grid in the box while turning, at the grid size, then the guide again", () => {
+    rig.setSetting(GRID_SIZE, 6);
+    const overlay = mount();
+    expect(guideLines(overlay)).toBe(4);
+    press(overlay);
+    moveTo(overlay, 580, 250);
+    expect(guideLines(overlay)).toBe(10);
+    release(overlay, 580, 250);
+    expect(guideLines(overlay)).toBe(4);
+  });
+
+  describe("with each frame drawn", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("refits the crop from where the drag began when constrained, so turning back un-crops", () => {
+      const overlay = mount();
+      press(overlay);
+      moveTo(overlay, 580, 400);
+      act(() => vi.advanceTimersToNextFrame());
+      const tilted = buildInverseTransform(straighten(), DEFAULT_TRANSFORM, 1.5);
+      expect(crop()).toEqual(fitCropToImage(CROP, tilted));
+      expect(crop().width).toBeLessThan(CROP.width);
+      moveTo(overlay, 580, 200);
+      release(overlay, 580, 200);
+      expect(straighten()).toBeCloseTo(0, 6);
+      expect(crop()).toEqual(fitCropToImage(CROP, buildInverseTransform(straighten(), DEFAULT_TRANSFORM, 1.5)));
+      expect(crop().width).toBeCloseTo(CROP.width, 6);
+    });
+
+    it("leaves the crop alone unconstrained", () => {
+      act(() => setCropOptions({ constrain: false }));
+      const overlay = mount();
+      press(overlay);
+      moveTo(overlay, 580, 400);
+      act(() => vi.advanceTimersToNextFrame());
+      release(overlay, 580, 400);
+      expect(straighten()).toBe(hundredth(-sweep(580, 400)));
+      expect(crop()).toEqual(CROP);
+    });
+  });
+
+  it("leaves Ctrl-drag to the level line, outside the box too", () => {
+    const overlay = mount();
+    press(overlay, { ctrlKey: true });
+    moveTo(overlay, 780, 210);
+    expect(guideLines(overlay)).toBe(4);
+    release(overlay, 780, 210);
+    expect(straighten()).toBe(2.86);
   });
 });
 
