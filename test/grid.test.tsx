@@ -30,6 +30,8 @@ beforeEach(() => {
   initRuntime(rig.api);
   resetCropMode();
   registerOptions();
+  // Crop mode lasts while the canvas is held, which activate wires up.
+  activate(rig.api);
 });
 
 afterEach(() => {
@@ -121,14 +123,14 @@ describe("Show grid", () => {
     return render(<GridOverlay />).container;
   };
 
-  it("is a checkbox outside crop mode, off until ticked, with the grid size under it", () => {
+  it("is a switch outside crop mode, off until turned on, with the grid size under it", () => {
     const view = render(<CropPanel />);
-    const box = screen.getByRole("checkbox", { name: "Show grid" }) as HTMLInputElement;
-    expect(box.checked).toBe(false);
+    const box = screen.getByRole("switch", { name: "Show grid" });
+    expect(box.getAttribute("aria-checked")).toBe("false");
     expect(labels(view.container)).toEqual(["Straighten"]);
     fireEvent.click(box);
     expect(setting(SHOW_GRID)).toBe(true);
-    expect(box.checked).toBe(true);
+    expect(box.getAttribute("aria-checked")).toBe("true");
     expect(labels(view.container)).toEqual(["Straighten", "Grid size"]);
     act(() => gridSlider(view.container).onChange(12));
     expect(setting(GRID_SIZE)).toBe(12);
@@ -137,13 +139,12 @@ describe("Show grid", () => {
   it("leaves crop mode to the Overlay guides", () => {
     render(<CropPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Crop" }));
-    expect(screen.queryByRole("checkbox", { name: "Show grid" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Show grid" })).toBeNull();
   });
 
   // Ctrl+' is Virtual Copies' (Lightroom's virtual copy), which registers
   // first; Ctrl+Alt+O is Lightroom's own key for its loupe grid overlay.
   it("toggles with a Develop shortcut, Ctrl+Alt+O until rebound", () => {
-    activate(rig.api);
     const key = rig.keys.find((k) => k.id === "crop.toggleGrid");
     expect(key).toMatchObject({ label: "Show grid", category: "Develop", defaultCombo: "Ctrl+Alt+O" });
     key?.handler();
@@ -153,7 +154,6 @@ describe("Show grid", () => {
   });
 
   it("draws from the canvas overlay layer", () => {
-    activate(rig.api);
     expect(rig.slots).toEqual([{ id: GRID_SLOT, slot: "develop-canvas-overlay", component: GridOverlay }]);
   });
 
@@ -197,7 +197,6 @@ describe("the grid's colour and opacity", () => {
   const stroke = (root: ParentNode) => [...new Set(lines(root).map((l) => l.getAttribute("stroke")))];
 
   it("are Preferences: white at 40% until changed", () => {
-    activate(rig.api);
     const fields = rig.settingsSections.flatMap((s) => s.fields);
     expect(fields.find((f) => f.key === GRID_COLOUR)).toEqual({
       key: GRID_COLOUR,

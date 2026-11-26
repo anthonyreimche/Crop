@@ -36,14 +36,6 @@ export const ROTATE_CURSOR: CursorContribution = {
   fallback: "grab",
 };
 
-// Pointer position in an element's local LAYOUT pixels, the space the handles
-// are drawn in: Preferences ▸ Interface scale zooms <body>, and under CSS zoom
-// clientX and getBoundingClientRect() are in zoomed visual pixels.
-function frameLocalPoint(rect: { left: number; top: number }, clientX: number, clientY: number) {
-  const z = api.stores.useSettings.getState().uiScale || 1;
-  return { x: (clientX - rect.left) / z, y: (clientY - rect.top) / z };
-}
-
 const resolveCursorCss = (token: string) => api.cursors.resolve(token);
 
 interface Rect {
@@ -225,14 +217,7 @@ export function CropBox({
   const [hoverHandle, setHoverHandle] = React.useState<Handle | null>(null);
   const dimId = React.useId();
 
-  // Pointer position in frame-local LAYOUT px — the same space the handles are
-  // drawn in. frameLocalPoint also undoes the <body> CSS zoom from the UI-scale
-  // setting, which otherwise scales clientX/getBoundingClientRect away from the
-  // layout-positioned handles (see frame-point.ts).
-  const frameXY = (e: ReactPointerEvent) => {
-    const b = e.currentTarget.getBoundingClientRect();
-    return frameLocalPoint(b, e.clientX, e.clientY);
-  };
+  const frameXY = (e: ReactPointerEvent) => api.develop.framePoint(e.currentTarget, e.clientX, e.clientY);
 
   const normRatio = aspect > 0 ? aspect / imageAspect : 0; // crop.w / crop.h
   // The same pixel ratio in the opposite orientation (e.g. 3:2 → 2:3), in

@@ -39,10 +39,9 @@ export const ASPECTS: { label: string; ratio: number }[] = [
   { label: "16:9", ratio: 16 / 9 },
 ];
 
-const choiceClass = (active: boolean) => `${cls.choice}${active ? ` ${cls.active}` : ""}`;
-
 export function CropPanel() {
   const { Panel, Slider } = api.components;
+  const { Button, NumberInput, Toggle } = api.ui;
   const useDevelopStore = api.stores.useDevelopStore;
   const { cropping, guide } = useCropMode();
   const { constrain, aspect: cropAspect } = useCropOptions();
@@ -54,19 +53,21 @@ export function CropPanel() {
   const setParam = useDevelopStore((s) => s.setParam);
   const commitEdit = useDevelopStore((s) => s.commitEdit);
   const aspect = useImageAspect();
+  const held = api.develop.useCanvasToolHeld();
+
+  // Another tool or a picker took the canvas: crop mode is left.
+  React.useEffect(() => {
+    if (cropping && !held) setCropping(false);
+  }, [cropping, held]);
 
   // The crop as it was before a straighten drag began. Fitting against this
   // (rather than the live, shrinking crop) lets rotating back un-crop outward.
   const baseCrop = React.useRef<CropRect | null>(null);
 
   // Custom ratio entry (width : height).
-  const [customW, setCustomW] = React.useState("16");
-  const [customH, setCustomH] = React.useState("10");
-  const customRatio = (() => {
-    const w = parseFloat(customW);
-    const h = parseFloat(customH);
-    return w > 0 && h > 0 ? w / h : 0;
-  })();
+  const [customW, setCustomW] = React.useState(16);
+  const [customH, setCustomH] = React.useState(10);
+  const customRatio = customW > 0 && customH > 0 ? customW / customH : 0;
 
   const applyAspect = (ratio: number) => {
     setCropping(true);
@@ -119,52 +120,40 @@ export function CropPanel() {
   return (
     <Panel title="Crop & Straighten" defaultOpen={false}>
       <div className={cls.panel}>
-        <button
-          type="button"
-          onClick={() => setCropping(!cropping)}
+        <Button
+          full
+          active={cropping}
           aria-pressed={cropping}
-          className={`${cls.toggle}${cropping ? ` ${cls.on}` : ""}`}
+          title={`Drag the edges or corners to crop · ${levelWith === "right" ? "Right-drag" : "Ctrl-drag"} across a line to level`}
+          onClick={() => setCropping(!cropping)}
         >
           {cropping ? "Done" : "Crop"}
-        </button>
+        </Button>
 
         {cropping && (
           <>
             <div className={cls.grid}>
               {ASPECTS.map((a) => (
-                <button key={a.label} type="button" onClick={() => applyAspect(a.ratio)} className={choiceClass(aspectActive(a.ratio))}>
+                <Button key={a.label} size="sm" active={aspectActive(a.ratio)} onClick={() => applyAspect(a.ratio)}>
                   {a.label}
-                </button>
+                </Button>
               ))}
             </div>
 
             {/* Custom ratio: width : height, applied like any preset. */}
             <div className={cls.custom}>
-              <input
-                type="number"
-                min={1}
-                aria-label="Custom ratio width"
-                value={customW}
-                onChange={(e) => setCustomW(e.target.value)}
-                className={cls.number}
-              />
+              <NumberInput min={1} width="3rem" aria-label="Custom ratio width" value={customW} onChange={setCustomW} />
               <span className={cls.colon}>:</span>
-              <input
-                type="number"
-                min={1}
-                aria-label="Custom ratio height"
-                value={customH}
-                onChange={(e) => setCustomH(e.target.value)}
-                className={cls.number}
-              />
-              <button
-                type="button"
+              <NumberInput min={1} width="3rem" aria-label="Custom ratio height" value={customH} onChange={setCustomH} />
+              <Button
+                size="sm"
                 disabled={customRatio <= 0}
+                active={customRatio > 0 && aspectActive(customRatio)}
                 onClick={() => applyAspect(customRatio)}
-                className={`${choiceClass(customRatio > 0 && aspectActive(customRatio))} ${cls.customButton}`}
+                className={cls.customButton}
               >
                 Custom
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -193,46 +182,30 @@ export function CropPanel() {
 
         {cropping && (
           <div className={cls.guides}>
-            <div className={cls.guidesHeader}>
-              <span>Overlay</span>
-              <span>O cycles · Shift+O flips</span>
-            </div>
+            <div className={cls.guidesHeader}>Overlay</div>
             <div className={cls.grid}>
               {CROP_GUIDES.map((g) => (
-                <button key={g.id} type="button" onClick={() => setGuide(g.id)} className={choiceClass(guide === g.id)}>
+                <Button key={g.id} size="sm" active={guide === g.id} title="O cycles · Shift+O flips" onClick={() => setGuide(g.id)}>
                   {g.label}
-                </button>
+                </Button>
               ))}
             </div>
             {guide === "grid" && gridSize}
           </div>
         )}
 
-        <label className={cls.check}>
-          <input type="checkbox" checked={constrain} onChange={(e) => setCropOptions({ constrain: e.target.checked })} />
-          Constrain to image
-        </label>
+        <Toggle label="Constrain to image" checked={constrain} onChange={(on) => setCropOptions({ constrain: on })} />
 
         {!cropping && (
-          <label
-            className={cls.check}
-            title="A grid over the photo, for checking horizons, verticals and lens distortion. Its shortcut is under Preferences ▸ Shortcuts."
-          >
-            <input type="checkbox" checked={grid.show} onChange={(e) => setShowGrid(e.target.checked)} />
-            Show grid
-          </label>
+          <div title="A grid over the photo, for checking horizons, verticals and lens distortion. Its shortcut is under Preferences ▸ Shortcuts.">
+            <Toggle label="Show grid" checked={grid.show} onChange={setShowGrid} />
+          </div>
         )}
         {!cropping && grid.show && gridSize}
 
-        {cropping && (
-          <p className={cls.hint}>
-            Drag the edges/corners to crop · {levelWith === "right" ? "Right-drag" : "Ctrl-drag"} across a line to level.
-          </p>
-        )}
-
-        <button type="button" onClick={resetCrop} className={cls.reset}>
+        <Button full onClick={resetCrop}>
           Reset crop
-        </button>
+        </Button>
       </div>
     </Panel>
   );

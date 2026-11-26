@@ -50,6 +50,8 @@ export function activate(host: SafelightAPI): void {
     title: "Crop & Straighten",
     component: CropPanel,
     defaultDock: { module: "develop", direction: "right", order: 3, width: 280, height: 150 },
+    // It edits the one open photo, so it stays out of the Library.
+    modules: ["develop"],
     onReset: () => {
       setCropOptions({ aspect: 0 });
       void host.stores.useDevelopStore.getState().resetParams(["crop", "straighten"], "Reset Crop & Straighten");

@@ -46,6 +46,8 @@ beforeEach(() => {
   initRuntime(rig.api);
   resetCropMode();
   registerOptions();
+  // Crop mode lasts while the canvas is held, which activate wires up.
+  activate(rig.api);
 });
 
 afterEach(() => {
@@ -88,8 +90,7 @@ describe("geometryStage", () => {
 });
 
 describe("activate", () => {
-  it("registers the Crop & Straighten panel, as core's core.crop did, and the stage of its line", () => {
-    activate(rig.api);
+  it("registers the Crop & Straighten panel for Develop only, as core's core.crop did, and the stage of its line", () => {
     expect(PANEL_ID).toBe("core.crop");
     expect(rig.panels).toEqual([
       {
@@ -97,6 +98,7 @@ describe("activate", () => {
         title: "Crop & Straighten",
         component: CropPanel,
         defaultDock: { module: "develop", direction: "right", order: 3, width: 280, height: 150 },
+        modules: ["develop"],
         onReset: expect.any(Function),
       },
     ]);
@@ -106,14 +108,12 @@ describe("activate", () => {
   });
 
   it("resets the crop and straighten as one step, and frees the aspect", () => {
-    activate(rig.api);
     rig.panels[0].onReset?.();
     expect(rig.calls).toEqual([{ resetParams: ["crop", "straighten"], label: "Reset Crop & Straighten" }]);
     expect(cropOptions().aspect).toBe(0);
   });
 
   it("registers the level-line gesture as a setting, Ctrl-drag by default", () => {
-    activate(rig.api);
     expect(rig.settingsSections.map((s) => s.title)).toEqual(["Crop & Straighten"]);
     expect(rig.settingsSections[0].fields[0]).toEqual({
       key: LEVEL_WITH,
@@ -129,7 +129,6 @@ describe("activate", () => {
   });
 
   it("cycles and flips the guide with O and Shift+O, while cropping only", () => {
-    activate(rig.api);
     expect(rig.keys.map((k) => [k.id, k.defaultCombo])).toEqual([
       ["crop.cycleGuide", "O"],
       ["crop.flipGuide", "Shift+O"],
@@ -150,7 +149,6 @@ describe("activate", () => {
 
 describe("crop mode", () => {
   it("holds the canvas while cropping, and lets go on Done", () => {
-    activate(rig.api);
     render(<CropPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Crop" }));
     expect(rig.held()).toBe(CROP_TOOL);
@@ -159,8 +157,25 @@ describe("crop mode", () => {
     expect(rig.held()).toBeNull();
   });
 
+  it("is the kit's button, filled while cropping, with the gestures in its tooltip", () => {
+    render(<CropPanel />);
+    const start = screen.getByRole("button", { name: "Crop" });
+    expect(start.dataset.active).toBeUndefined();
+    fireEvent.click(start);
+    const done = screen.getByRole("button", { name: "Done" });
+    expect(done.dataset.active).toBe("true");
+    expect(done.title).toMatch(/Drag the edges or corners to crop/);
+  });
+
+  it("leaves crop mode when another tool or a picker takes the canvas", () => {
+    render(<CropPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop" }));
+    act(() => rig.takeCanvas());
+    expect(cropMode().cropping).toBe(false);
+    expect(screen.getByRole("button", { name: "Crop" })).toBeTruthy();
+  });
+
   it("leaves crop mode on Escape", () => {
-    activate(rig.api);
     render(<CropPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Crop" }));
     act(() => CROP_TOOL.onEscape?.());
@@ -195,6 +210,25 @@ describe("the panel's aspects", () => {
     expect(crop()).toEqual(computeCropForAspect(ratio, 1.5));
     expect(rig.calls.at(-1)).toEqual({ commitEdit: "Crop" });
     expect(cropOptions().aspect).toBe(ratio);
+  });
+
+  it("fills the chosen aspect's button only", () => {
+    choose("3:2");
+    const filled = ["Free", "Original", "1:1", "3:2", "4:3", "16:9"].filter(
+      (label) => screen.getByRole("button", { name: label }).dataset.active === "true",
+    );
+    expect(filled).toEqual(["3:2"]);
+  });
+
+  it("applies a custom ratio typed into the kit's number fields", () => {
+    render(<CropPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Custom ratio width" }), { target: { value: "2" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Custom ratio height" }), { target: { value: "1" } });
+    const custom = screen.getByRole("button", { name: "Custom" });
+    fireEvent.click(custom);
+    expect(cropOptions().aspect).toBe(2);
+    expect(custom.dataset.active).toBe("true");
   });
 
   it("keeps Original as the photo's own, whatever photo opens", () => {
@@ -266,7 +300,7 @@ describe("straightening from the panel", () => {
 
   it("shares Constrain to image through the options variable", () => {
     render(<CropPanel />);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Constrain to image" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Constrain to image" }));
     expect(rig.api.variables.get(OPTIONS)?.value).toEqual({ constrain: false, aspect: -1 });
   });
 });
@@ -321,6 +355,17 @@ describe("the crop box", () => {
       expect(path?.getAttribute("d")).toContain("M150 100H450V300H150Z");
       expect(path?.getAttribute("fill-rule")).toBe("evenodd");
     });
+  });
+
+  it("reads the pointer in the frame's layout px under Interface scale", () => {
+    act(() => setCropOptions({ aspect: 0 }));
+    rig.setFrameZoom(2);
+    const { overlay } = mount();
+    fireEvent.pointerDown(overlay, { pointerId: 1, button: 0, clientX: 1200, clientY: 800 });
+    fireEvent.pointerMove(overlay, { pointerId: 1, buttons: 1, clientX: 1000, clientY: 640 });
+    fireEvent.pointerUp(overlay, { pointerId: 1, clientX: 1000, clientY: 640 });
+    expect(crop().width).toBeCloseTo(500 / 600);
+    expect(crop().height).toBeCloseTo(320 / 400);
   });
 
   it("hides while the Crop or Transform panel's preview-off eye is held", () => {
@@ -418,16 +463,33 @@ describe("the level line", () => {
     expect(rig.calls).toContainEqual({ commitEdit: "Crop" });
   });
 
-  it("names the gesture in the panel's hint", () => {
+  it("names the gesture in the Crop button's tooltip, not in panel text", () => {
     render(<CropPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Crop" }));
-    expect(screen.getByText(/Ctrl-drag across a line to level/)).toBeTruthy();
+    const done = () => screen.getByRole("button", { name: "Done" });
+    expect(done().title).toMatch(/Ctrl-drag across a line to level/);
     act(() => rig.setSetting(LEVEL_WITH, "right"));
-    expect(screen.getByText(/Right-drag across a line to level/)).toBeTruthy();
+    expect(done().title).toMatch(/Right-drag across a line to level/);
+    expect(screen.queryByText(/across a line to level/)).toBeNull();
   });
 });
 
 describe("the guide in the box", () => {
+  it("names the guide shortcuts in the guide buttons' tooltips, not in panel text", () => {
+    render(<CropPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop" }));
+    for (const g of CROP_GUIDES) expect(screen.getByRole("button", { name: g.label }).title).toBe("O cycles · Shift+O flips");
+    expect(screen.queryByText(/O cycles/)).toBeNull();
+  });
+
+  it("fills the chosen guide's button only", () => {
+    render(<CropPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop" }));
+    fireEvent.click(screen.getByRole("button", { name: "Golden" }));
+    const filled = CROP_GUIDES.filter((g) => screen.getByRole("button", { name: g.label }).dataset.active === "true");
+    expect(filled.map((g) => g.label)).toEqual(["Golden"]);
+  });
+
   it.each(CROP_GUIDES.map((g) => [g.label, g.id] as const))("draws %s from its button", (label, id) => {
     rig.overlay.setState({ region: { x: 0, y: 0, width: 1, height: 1 }, imageAspect: 1.5 });
     render(<CropPanel />);
@@ -474,7 +536,6 @@ describe("turning the photo outside the box", () => {
     fireEvent.pointerUp(overlay, { pointerId: 1, clientX, clientY });
 
   it("shows the rotate cursor outside the box, and the others where they were", () => {
-    activate(rig.api);
     const overlay = mount();
     expect(rig.cursors.map((c) => c.id)).toEqual(["crop-rotate"]);
     fireEvent.pointerMove(overlay, START);

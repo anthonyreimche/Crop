@@ -5,11 +5,13 @@
 // them. Core's Panel draws its children, and core's Slider is a stub that keeps
 // the props it was last rendered with, so a test can drive it the way the real
 // one would. The extension's own settings are kept in a map, as core persists
-// them.
+// them. The UI kit's controls draw the elements core's do (a Toggle is a
+// switch), and a Button marks itself active the way core's fills.
 
 import * as React from "react";
 import { create } from "zustand";
 import type {
+  ButtonProps,
   CanvasTool,
   CatalogStoreState,
   CursorContribution,
@@ -17,16 +19,17 @@ import type {
   DevelopParams,
   DevelopStoreState,
   KeyActionContribution,
+  NumberInputProps,
   PanelContribution,
   PanelProps,
   ProcessingStageContribution,
   SafelightAPI,
   SettingsContribution,
-  SettingsState,
   SliderProps,
   SlotContribution,
   StoreApi,
   StylesheetContribution,
+  ToggleProps,
   UiTokens,
   VariableSnapshot,
 } from "../../src/safelight";
@@ -38,14 +41,7 @@ export type DevelopCall =
   | { resetParams: (keyof DevelopParams)[]; label: string };
 
 export const TOKENS: UiTokens = {
-  surface2: "var(--color-surface-2)",
-  surface3: "var(--color-surface-3)",
-  surface4: "var(--color-surface-4)",
-  textPrimary: "var(--color-text-primary)",
-  textSecondary: "var(--color-text-secondary)",
   textMuted: "var(--color-text-muted)",
-  sliderFill: "var(--color-slider-fill)",
-  white: "var(--color-white)",
 };
 
 /** Core's default cursor tokens the crop box uses, as CSS. */
@@ -77,8 +73,43 @@ export interface Rig {
   setSetting(key: string, value: unknown): void;
   /** The canvas tool this extension holds, or null. */
   held(): CanvasTool | null;
+  /** Another extension's on-image tool (or picker) takes the canvas. */
+  takeCanvas(): void;
   /** The latest props of each slider drawn in `root`, in document order. */
   sliders(root: ParentNode): SliderProps[];
+  /** Interface scale as framePoint applies it. */
+  setFrameZoom(zoom: number): void;
+}
+
+function Button({ active, variant: _variant, size: _size, full: _full, type = "button", children, ...rest }: ButtonProps) {
+  return React.createElement("button", { ...rest, type, "data-active": active ? "true" : undefined }, children);
+}
+
+function NumberInput({ value, onChange, width, style, ...rest }: NumberInputProps) {
+  return React.createElement("input", {
+    ...rest,
+    type: "number",
+    value,
+    style: { width, ...style },
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      const n = parseFloat(e.target.value);
+      if (Number.isFinite(n)) onChange(n);
+    },
+  });
+}
+
+function Toggle({ checked, onChange, label, ariaLabel }: ToggleProps) {
+  return React.createElement(
+    "button",
+    {
+      type: "button",
+      role: "switch",
+      "aria-checked": checked,
+      "aria-label": ariaLabel ?? (typeof label === "string" ? label : undefined),
+      onClick: () => onChange(!checked),
+    },
+    label,
+  );
 }
 
 export function fakeApi({
@@ -100,11 +131,12 @@ export function fakeApi({
     stored.set(key, value);
     for (const l of settingListeners) l(key, value);
   };
-  const tool = create<{ tool: CanvasTool | null }>(() => ({ tool: null }));
+  const tool = create<{ tool: CanvasTool | null; mine: boolean }>(() => ({ tool: null, mine: false }));
   const variables = new Map<string, unknown>();
   const listeners = new Map<string, Set<(s: VariableSnapshot<unknown>) => void>>();
   const sliderProps = new Map<number, SliderProps>();
   let nextSlider = 0;
+  let frameZoom = 1;
 
   const develop: StoreApi<DevelopStoreState> = create<DevelopStoreState>()((set) => ({
     params: { ...PARAMS, ...params },
@@ -126,7 +158,6 @@ export function fakeApi({
     photos: [{ id: "p", ...photo }],
     activePhotoId: "p",
   }));
-  const settings: StoreApi<SettingsState> = create<SettingsState>()(() => ({ uiScale: 1 }));
   const overlay: StoreApi<DevelopOverlayState> = create<DevelopOverlayState>()(() => ({
     rect: null,
     imageRect: null,
@@ -166,11 +197,18 @@ export function fakeApi({
       },
     },
     components: { Panel, Slider },
-    stores: { useDevelopStore: develop, useCatalogStore: catalog, useSettings: settings },
+    stores: { useDevelopStore: develop, useCatalogStore: catalog },
     develop: {
       useDevelopOverlay: () => overlay(),
-      setCanvasTool: (t) => tool.setState({ tool: t }),
-      useCanvasToolHeld: () => tool((s) => s.tool !== null),
+      setCanvasTool: (t) => {
+        if (t) tool.setState({ tool: t, mine: true });
+        else if (tool.getState().mine) tool.setState({ tool: null, mine: false });
+      },
+      useCanvasToolHeld: () => tool((s) => s.mine),
+      framePoint: (el, clientX, clientY) => {
+        const r = el.getBoundingClientRect();
+        return { x: (clientX - r.left) / frameZoom, y: (clientY - r.top) / frameZoom };
+      },
     },
     cursors: {
       resolve: (token) => {
@@ -198,7 +236,7 @@ export function fakeApi({
         return { ok: true };
       },
     },
-    ui: { tokens: TOKENS },
+    ui: { tokens: TOKENS, Button, NumberInput, Toggle },
   };
 
   return {
@@ -215,7 +253,11 @@ export function fakeApi({
     slots,
     cursors,
     setSetting,
-    held: () => tool.getState().tool,
+    held: () => (tool.getState().mine ? tool.getState().tool : null),
+    takeCanvas: () => tool.setState({ tool: null, mine: false }),
+    setFrameZoom: (zoom) => {
+      frameZoom = zoom;
+    },
     sliders: (root) =>
       [...root.querySelectorAll("[data-slider]")].map((el) => {
         const props = sliderProps.get(Number(el.getAttribute("data-slider")));
